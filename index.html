@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Gelişmiş RSS akış okuyucu — birden fazla kaynağı tek panelde takip edin.">
+<meta name="description" content="Gelişmiş RSS akış okuyucu, birden fazla kaynağı tek panelde takip edin.">
 <title>RSS Feeder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
@@ -83,6 +83,7 @@ body::before {
   pointer-events: none;
   z-index: 50;
   opacity: 0.5;
+  transform: translateZ(0);
 }
 
 header {
@@ -99,6 +100,8 @@ header {
   top: 0;
   z-index: 100;
   transition: background 0.25s, border-color 0.25s;
+  will-change: transform, backdrop-filter;
+  transform: translateZ(0);
 }
 header::before {
   content: '';
@@ -302,6 +305,8 @@ html[data-theme="light"] .icon-sun  { display: block; }
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.04);
   transition: background 0.3s, border-color 0.3s;
+  will-change: transform, backdrop-filter;
+  transform: translateZ(0);
 }
 
 .sidebar-label {
@@ -338,17 +343,19 @@ html[data-theme="light"] .icon-sun  { display: block; }
   background: var(--active-color, var(--accent));
   box-shadow: 0 0 15px var(--active-color, var(--accent));
   animation: feedBorderPulse 2.5s ease-in-out infinite;
+  will-change: opacity;
 }
 
 @keyframes feedBorderPulse {
-  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--active-color, var(--accent)) 40%, transparent); }
-  50% { box-shadow: 0 0 20px var(--active-color, var(--accent)); }
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .feed-item.active::before {
   content: ''; position: absolute; left: -100%; top: 0; width: 100%; height: 100%;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-color, var(--accent)) 15%, transparent), transparent);
   animation: feedSweep 3s infinite linear;
+  will-change: left;
 }
 
 @keyframes feedSweep {
@@ -364,13 +371,14 @@ html[data-theme="light"] .icon-sun  { display: block; }
   transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .feed-item.active .feed-dot {
-  box-shadow: 0 0 10px var(--active-color, var(--accent)), 0 0 20px color-mix(in srgb, var(--active-color, var(--accent)) 40%, transparent);
+  box-shadow: 0 0 10px var(--active-color, var(--accent));
   animation: dotPulse 2.5s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 @keyframes dotPulse {
-  0%, 100% { box-shadow: 0 0 8px var(--active-color, var(--accent)); transform: scale(1); }
-  50% { box-shadow: 0 0 16px var(--active-color, var(--accent)), 0 0 28px color-mix(in srgb, var(--active-color, var(--accent)) 30%, transparent); transform: scale(1.25); }
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; }
 }
 
 .feed-name {
@@ -426,13 +434,14 @@ html[data-theme="light"] .icon-sun  { display: block; }
   background: var(--accent);
   color: var(--bg);
   border-color: var(--accent);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px var(--accent-glow);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
   animation: allFeedsPulse 2.5s infinite;
+  will-change: opacity, transform;
 }
 .all-feeds-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; transition: all 0.3s; }
 @keyframes allFeedsPulse {
-  0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px var(--accent-glow); }
-  50% { box-shadow: 0 4px 25px rgba(0,0,0,0.4), 0 0 30px var(--accent-glow); }
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.02); }
 }
 
 .content { flex: 1; padding: 2rem 2rem 3rem; min-width: 0; position: relative; }
@@ -559,7 +568,7 @@ html[data-theme="light"] .icon-sun  { display: block; }
   transform: perspective(1000px) translateZ(0);
   transform-style: preserve-3d;
   backface-visibility: hidden;
-  will-change: transform, border-color, box-shadow;
+  will-change: transform;
   transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
               box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
               transform 0.1s linear;
@@ -966,14 +975,247 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
   pointer-events: none; display: none;
 }
 
+/* ── HAMBURGER BUTTON ── */
+.hamburger-btn {
+  display: none;
+  width: 36px; height: 36px;
+  align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--surface2) 50%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-bright);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 200;
+}
+.hamburger-btn:hover {
+  background: color-mix(in srgb, var(--surface2) 90%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.hamburger-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+/* ── MOBILE SIDEBAR OVERLAY ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 149;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.sidebar-overlay.open {
+  opacity: 1;
+}
+
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .news-grid { grid-template-columns: 1fr; gap: 16px; }
-  header { padding: 0 1rem; }
-  .content { padding: 1rem; }
+  .hamburger-btn { display: flex; }
+  .sidebar-overlay { display: block; pointer-events: none; }
+  .sidebar-overlay.open { pointer-events: auto; }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 80vw;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--border);
+    z-index: 150;
+    height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    padding-top: 1.25rem;
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  header {
+    padding: 0 12px;
+    height: 56px;
+    gap: 8px;
+  }
+  header::before { width: 200px; }
+
+  .logo-text {
+    font-size: 16px;
+    letter-spacing: 0.08em;
+  }
+  .modern-radar {
+    width: 32px; height: 32px;
+  }
+  .logo-wrap { gap: 8px; }
+
+  .search-wrap {
+    max-width: none;
+    flex: 1;
+    margin: 0 8px;
+    min-width: 0;
+  }
+  .search-input {
+    font-size: 13px;
+    padding: 7px 32px 7px 36px;
+  }
+  .search-icon { left: 12px; width: 14px; height: 14px; }
+
+  .header-right { gap: 6px; }
+  .brand-time-wrap {
+    display: none;
+  }
   .k4satura-brand { display: none; }
-  .search-wrap { max-width: 180px; margin: 0 8px; }
-  .toast { right: 1rem; bottom: 1.5rem; min-width: calc(100% - 2rem); }
+
+  .btn-manage {
+    padding: 6px 10px;
+    font-size: 10px;
+    gap: 4px;
+    letter-spacing: 0.06em;
+  }
+  .btn-manage svg { width: 12px; height: 12px; }
+
+  .btn-theme {
+    width: 32px; height: 32px;
+  }
+  .btn-theme svg { width: 15px; height: 15px; }
+
+  .main-wrap {
+    flex-direction: column;
+    min-height: calc(100vh - 56px);
+  }
+
+  .content {
+    padding: 1rem;
+    padding-top: 1.25rem;
+  }
+
+  .content-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+  }
+  .content-header > div:last-child {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .feed-title {
+    font-size: 18px;
+  }
+  .feed-count {
+    font-size: 11px;
+    padding: 4px 10px;
+    margin-top: 6px;
+  }
+
+  .btn-refresh {
+    font-size: 11px;
+    padding: 7px 14px;
+    gap: 6px;
+  }
+  .btn-refresh svg { width: 13px; height: 13px; }
+
+  #autoRefreshCounter {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .news-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .news-card {
+    border-radius: 10px;
+  }
+  .card-img-wrap { height: 160px; }
+  .card-body { padding: 12px 14px 14px; }
+  .card-title { font-size: 14px; -webkit-line-clamp: 3; line-clamp: 3; }
+  .card-snippet { font-size: 12px; -webkit-line-clamp: 2; line-clamp: 2; margin-bottom: 10px; }
+  .card-source { font-size: 9px; padding: 2px 7px; }
+  .card-date { font-size: 9.5px; padding: 2px 6px; }
+  .card-link { font-size: 10px; padding: 4px 10px; }
+  .card-btn-copy { width: 24px; height: 24px; }
+  .card-btn-copy svg { width: 12px; height: 12px; }
+
+  /* Modal mobile */
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 16px 16px 0 0;
+    animation: modalSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes modalSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-header { padding: 1rem 1.25rem; }
+  .modal-body { padding: 1rem 1.25rem; }
+  .modal-title { font-size: 12px; letter-spacing: 0.1em; }
+  .form-row { flex-direction: column; gap: 8px; }
+  .btn-add { width: 100%; text-align: center; justify-content: center; }
+  .form-input { font-size: 13px; padding: 10px 14px; }
+
+  .feed-list-item {
+    padding: 10px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .feed-info-name { font-size: 13px; }
+  .feed-info-url { font-size: 10px; }
+  .btn-delete, .btn-edit { font-size: 10px; padding: 3px 7px; }
+
+  .toast {
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: 1rem;
+    min-width: unset;
+    width: auto;
+  }
+  .toast-body { padding: 12px 14px; gap: 10px; }
+  .toast-message { font-size: 12px; }
+  .toast-icon { width: 28px; height: 28px; }
+
+  .empty-state { padding: 4rem 1.5rem; }
+  .empty-state svg { width: 56px; height: 56px; }
+  .empty-state-text { font-size: 12px; }
+}
+
+@media (max-width: 480px) {
+  .logo-text { font-size: 14px; }
+  .modern-radar { width: 28px; height: 28px; }
+  .logo-wrap { gap: 6px; }
+  .search-input { font-size: 12px; padding: 6px 28px 6px 32px; }
+  .search-icon { left: 10px; width: 13px; height: 13px; }
+  .btn-manage span { display: none; }
+  .btn-manage { padding: 6px 8px; }
+  .news-grid { gap: 12px; }
+  .card-img-wrap { height: 140px; }
+  header { height: 50px; padding: 0 10px; }
+  .content { padding: 0.75rem; padding-top: 1rem; }
+  .feed-title { font-size: 16px; }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .news-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 </style>
 </head>
@@ -982,16 +1224,21 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
 <div id="themeTransition"></div>
 
 <header>
-  <div class="logo-wrap">
-    <div class="modern-radar">
-      <div class="radar-sweep-container"><div class="radar-sweep"></div></div>
-      <div class="radar-core"></div>
-      <div class="radar-ring r1"></div>
-      <div class="radar-ring r2"></div>
-      <div class="radar-blip b1"></div>
-      <div class="radar-blip b2"></div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileSidebar()">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="logo-wrap">
+      <div class="modern-radar">
+        <div class="radar-sweep-container"><div class="radar-sweep"></div></div>
+        <div class="radar-core"></div>
+        <div class="radar-ring r1"></div>
+        <div class="radar-ring r2"></div>
+        <div class="radar-blip b1"></div>
+        <div class="radar-blip b2"></div>
+      </div>
+      <div class="logo-text">RSS FEEDER</div>
     </div>
-    <div class="logo-text">RSS FEEDER</div>
   </div>
 
   <div class="search-wrap">
@@ -1030,7 +1277,7 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
 <div class="main-wrap">
   <aside class="sidebar">
     <div class="all-feeds-wrap">
-      <div class="all-feeds-btn" id="btnAllFeeds" onclick="renderArticles('all')">
+      <div class="all-feeds-btn" id="btnAllFeeds" onclick="renderArticles('all'); closeMobileSidebar();">
         <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
         TÜM HABERLER
       </div>
@@ -1041,6 +1288,7 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
     </div>
     <div id="sidebarFeeds"></div>
   </aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
 
   <main class="content">
     <div class="content-header">
@@ -1211,20 +1459,27 @@ function markAsRead(id) {
 }
 
 function initTilt(card) {
+  let ticking = false;
   card.addEventListener('mousemove', e => {
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const percentX = (x - centerX) / centerX;
-    const percentY = (y - centerY) / centerY;
-    
-    const rotateX = percentY * -5; 
-    const rotateY = percentX * 5;
-    
-    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(5px)`;
-  });
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const percentX = (x - centerX) / centerX;
+        const percentY = (y - centerY) / centerY;
+        
+        const rotateX = percentY * -5; 
+        const rotateY = percentX * 5;
+        
+        card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(5px)`;
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
   
   card.addEventListener('mouseleave', () => {
     card.style.transform = `perspective(800px) rotateX(0deg) rotateY(0deg) translateZ(0)`;
@@ -1289,68 +1544,172 @@ function getPlainText(h) {
   } catch(e) { return str.replace(/<[^>]+>/g,'').trim().replace(/\s+/g, ' '); }
 }
 
-function extractImageFromHtml(htmlContent) {
+function extractImageFromHtml(htmlContent, baseUrl) {
   if (!htmlContent) return null;
   try {
-    if (htmlContent.includes('&lt;')) {
+    let str = String(htmlContent).replace(/<!\[CDATA\[([\s\S]*?)\]\]>/gi, '$1');
+    if (str.includes('&lt;') || str.includes('&amp;')) {
       const txt = document.createElement('textarea');
-      txt.innerHTML = htmlContent;
-      htmlContent = txt.value;
+      txt.innerHTML = str;
+      str = txt.value;
     }
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const doc = parser.parseFromString(str, 'text/html');
     const images = Array.from(doc.querySelectorAll('img'));
     
-    for (let img of images) {
-      let url = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('src');
-      if (!url) continue;
+    const skipKeywords = ['pixel','tracker','stats','spinner','1x1','blank'];
+    
+    const validateUrl = (url) => {
+      if (!url) return null;
       url = url.trim();
-      if (url.startsWith('data:')) continue;
-      if (url.startsWith('//')) url = 'https:' + url; else if (url.startsWith('/')) continue; 
-      if (url.length < 10) continue;
-      
-      const skipKeywords = ['pixel','tracker','stats','logo','icon','avatar','spinner','placeholder'];
+      if (url.startsWith('data:')) return null;
+      if (url.length < 10) return null;
+      if (url.startsWith('//')) url = 'https:' + url;
+      else if (url.startsWith('/')) {
+        if (baseUrl) {
+          try { url = new URL(url, baseUrl).href; } catch(e) { return null; }
+        } else { return null; }
+      }
+      if (!url.startsWith('http')) return null;
       const lowerUrl = url.toLowerCase();
-      if (skipKeywords.some(k => lowerUrl.includes(k))) continue;
-      if (img.getAttribute('width') === '1' || img.getAttribute('height') === '1') continue;
+      if (skipKeywords.some(k => lowerUrl.includes(k))) return null;
+      return url;
+    };
+    
+    for (let img of images) {
+      const w = img.getAttribute('width');
+      const h = img.getAttribute('height');
+      if ((w === '1' || w === '0') || (h === '1' || h === '0')) continue;
+      const style = img.getAttribute('style') || '';
+      if (/display\s*:\s*none/i.test(style)) continue;
       
-      return url; 
+      const attrs = ['data-src', 'data-lazy-src', 'data-original', 'data-full-src', 'data-srcset', 'srcset', 'src'];
+      for (const attr of attrs) {
+        let val = img.getAttribute(attr);
+        if (!val) continue;
+        if (attr === 'srcset' || attr === 'data-srcset') {
+          const parts = val.split(',').map(s => s.trim()).filter(Boolean);
+          let bestSrc = parts[0].split(/\s+/)[0];
+          let maxW = 0;
+          for (const p of parts) {
+            const pSplit = p.split(/\s+/);
+            const srcUrl = pSplit[0];
+            const wStr = pSplit[1];
+            if (wStr && wStr.endsWith('w')) {
+              const weight = parseInt(wStr);
+              if (weight > maxW) { maxW = weight; bestSrc = srcUrl; }
+            } else if (!maxW) {
+              bestSrc = srcUrl;
+            }
+          }
+          val = bestSrc;
+        }
+        const url = validateUrl(val);
+        if (url) return url;
+      }
     }
+    
+    const videos = doc.querySelectorAll('video[poster]');
+    for (const v of videos) {
+      const url = validateUrl(v.getAttribute('poster'));
+      if (url) return url;
+    }
+    
+    const sources = doc.querySelectorAll('picture source[srcset], source[srcset]');
+    for (const s of sources) {
+      let val = s.getAttribute('srcset');
+      if (val) {
+        const parts = val.split(',').map(ss => ss.trim()).filter(Boolean);
+        let bestSrc = parts[0].split(/\s+/)[0];
+        let maxW = 0;
+        for (const p of parts) {
+          const pSplit = p.split(/\s+/);
+          const srcUrl = pSplit[0];
+          const wStr = pSplit[1];
+          if (wStr && wStr.endsWith('w')) {
+            const weight = parseInt(wStr);
+            if (weight > maxW) { maxW = weight; bestSrc = srcUrl; }
+          } else if (!maxW) {
+            bestSrc = srcUrl;
+          }
+        }
+        const url = validateUrl(bestSrc);
+        if (url) return url;
+      }
+    }
+    
+    const allEls = doc.querySelectorAll('[style*="background"]');
+    for (const el of allEls) {
+      const bgMatch = (el.getAttribute('style') || '').match(/url\(['"]?(https?:\/\/[^'"\)]+)['"]?\)/i);
+      if (bgMatch) {
+        const url = validateUrl(bgMatch[1]);
+        if (url) return url;
+      }
+    }
+    
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let match;
+    while ((match = imgRegex.exec(str)) !== null) {
+      const url = validateUrl(match[1]);
+      if (url) return url;
+    }
+    
   } catch (e) {}
   return null;
 }
 
 const feedCache = new Map();
 
-function getBestImage(it) {
-  const checkUrl = (url) => url && typeof url === 'string' && url.startsWith('http') ? url : null;
-  const isImageUrl = (url) => url && /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(url);
+function decodeImageUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  return url.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+}
 
-  if (checkUrl(it.thumbnail)) return it.thumbnail;
-  if (checkUrl(it.image)) return it.image;
-  if (it.image && it.image.url && checkUrl(it.image.url)) return it.image.url;
+function getBestImage(it, baseUrl) {
+  const checkUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    url = decodeImageUrl(url).trim();
+    if (url.startsWith('//')) url = 'https:' + url;
+    else if (url.startsWith('/') && baseUrl) {
+      try { url = new URL(url, baseUrl).href; } catch(e) {}
+    }
+    return url.startsWith('http') ? url : null;
+  };
+  const isImageUrl = (url) => url && /\.(jpg|jpeg|png|gif|webp|avif|svg|bmp|tiff?)([\?#].*)?$/i.test(url);
+
+  // Direct image fields
+  if (checkUrl(it.thumbnail)) return checkUrl(it.thumbnail);
+  if (typeof it.image === 'string' && checkUrl(it.image)) return checkUrl(it.image);
+  if (it.image && it.image.url && checkUrl(it.image.url)) return checkUrl(it.image.url);
+  if (it.image && it.image.href && checkUrl(it.image.href)) return checkUrl(it.image.href);
 
   const extractMedia = (obj) => {
     if (!obj) return null;
     const arr = Array.isArray(obj) ? obj : [obj];
     for (const item of arr) {
       if (!item) continue;
-      const url = checkUrl(item.$?.url || item.url);
-      const type = (item.$?.type || item.type || '').toLowerCase();
-      if (url && (type.startsWith('image/') || isImageUrl(url))) return url;
+      let url = checkUrl(item.$?.url || item.$?.href || item.url || item.href);
+      if (!url && typeof item === 'string') url = checkUrl(item);
+      if (!url && item._) url = checkUrl(item._);
+      const type = (item.$?.type || item.$?.medium || item.type || item.medium || '').toLowerCase();
+      if (url && (type.startsWith('image/') || type === 'image' || isImageUrl(url))) return url;
     }
     for (const item of arr) {
       if (!item) continue;
-      const url = checkUrl(item.$?.url || item.url);
-      const type = (item.$?.type || item.type || '').toLowerCase();
-      if (url && !type.startsWith('video/') && !type.startsWith('audio/')) return url;
+      let url = checkUrl(item.$?.url || item.$?.href || item.url || item.href);
+      if (!url && typeof item === 'string') url = checkUrl(item);
+      if (!url && item._) url = checkUrl(item._);
+      const type = (item.$?.type || item.$?.medium || item.type || item.medium || '').toLowerCase();
+      if (url && !type.startsWith('video/') && !type.startsWith('audio/') && type !== 'video' && type !== 'audio') return url;
     }
     return null;
   };
 
+  // media:thumbnail
   const mThumb = extractMedia(it['media:thumbnail']) || extractMedia(it.mediaThumbnail);
   if (mThumb) return mThumb;
   
+  // media:group
   if (it['media:group']) {
     const mg = it['media:group'];
     const tUrl = extractMedia(mg['media:thumbnail']);
@@ -1365,12 +1724,25 @@ function getBestImage(it) {
      if (cUrl) return cUrl;
   }
 
+  // media:content
   const mContent = extractMedia(it['media:content']) || extractMedia(it.mediaContent);
   if (mContent) return mContent;
 
-  if (it['itunes:image'] && it['itunes:image']['$']) return checkUrl(it['itunes:image']['$'].href);
-  if (it.itunes && it.itunes.image) return checkUrl(it.itunes.image);
+  // itunes image
+  if (it['itunes:image'] && it['itunes:image']['$']) {
+    const u = checkUrl(it['itunes:image']['$'].href);
+    if (u) return u;
+  }
+  if (it.itunes && it.itunes.image) {
+    const u = checkUrl(it.itunes.image);
+    if (u) return u;
+  }
+  if (it.itunesImage) {
+    const u = checkUrl(it.itunesImage.$ ? it.itunesImage.$.href : it.itunesImage);
+    if (u) return u;
+  }
 
+  // enclosure
   const encs = Array.isArray(it.enclosure) ? it.enclosure : [it.enclosure].filter(Boolean);
   for (const enc of encs) {
     const encUrl = checkUrl(enc.url) || checkUrl(enc.link) || checkUrl(enc.href);
@@ -1382,17 +1754,19 @@ function getBestImage(it) {
     if (encUrl && !/video|audio/i.test(enc.type || '')) return encUrl;
   }
   
-  const links = Array.isArray(it.links) ? it.links : [it.link].filter(Boolean);
+  // Atom links with rel=enclosure
+  const links = Array.isArray(it.links) ? it.links : (it.link && typeof it.link === 'object' ? [it.link] : []);
   for (const l of links) {
     const lObj = l.$ || l;
     if (lObj && lObj.rel === 'enclosure' && checkUrl(lObj.href)) {
-       if (/image/i.test(lObj.type || '') || isImageUrl(lObj.href)) return lObj.href;
+       if (/image/i.test(lObj.type || '') || isImageUrl(lObj.href)) return checkUrl(lObj.href);
     }
   }
 
-  const htmlParts = [it.content, it['content:encoded'], it.description, it.summary, it['content:encodedSnippet']];
+  // Extract from HTML content — prioritize content:encoded (WordPress full content)
+  const htmlParts = [it['content:encoded'], it.content, it.description, it.summary, it['content:encodedSnippet'], it.contentSnippet];
   let combinedHtml = htmlParts.filter(Boolean).join(' ');
-  const fromHtml = extractImageFromHtml(combinedHtml);
+  const fromHtml = extractImageFromHtml(combinedHtml, baseUrl || it.link || it.guid);
   if (fromHtml) return fromHtml;
 
   return null;
@@ -1421,7 +1795,7 @@ async function fetchFeed(feed) {
         const data = await res.json();
         if (data.status === 'ok' && data.items && data.items.length > 0) {
           return data.items.map(it => {
-            let img = getBestImage(it);
+            let img = getBestImage(it, it.link || it.guid);
             return {
               id: Math.random().toString(36).substr(2, 9),
               title: stripHtml(it.title) || 'Başlıksız İçerik',
@@ -1441,18 +1815,18 @@ async function fetchFeed(feed) {
           const parser = new RSSParser({
             customFields: {
               item: [
-                ['media:content', 'mediaContent', {keepArray: false}],
-                ['media:thumbnail', 'mediaThumbnail', {keepArray: false}],
-                ['media:group', 'mediaGroup', {keepArray: false}],
-                ['itunes:image', 'itunesImage', {keepArray: false}],
-                ['enclosure', 'enclosure', {keepArray: false}]
+                ['media:content', 'mediaContent', {keepArray: true}],
+                ['media:thumbnail', 'mediaThumbnail', {keepArray: true}],
+                ['media:group', 'mediaGroup', {keepArray: true}],
+                ['itunes:image', 'itunesImage', {keepArray: true}],
+                ['enclosure', 'enclosure', {keepArray: true}]
               ]
             }
           });
           const parsedData = await parser.parseString(text);
           if (parsedData && parsedData.items) {
-            return parsedData.items.slice(0, 25).map(it => {
-              let img = getBestImage(it);
+            return parsedData.items.map(it => {
+              let img = getBestImage(it, it.link || it.guid);
               return {
                 id: Math.random().toString(36).substr(2, 9),
                 title: stripHtml(it.title) || 'Başlıksız İçerik',
@@ -1501,7 +1875,8 @@ function updateCounterDisplay() {
 }
 
 function manualRefresh() { 
-  location.reload();
+  feedCache.clear();
+  loadAllFeeds();
 }
 
 async function loadAllFeeds() {
@@ -1646,20 +2021,27 @@ function renderArticles(filter) {
   domNewsGrid.appendChild(frag);
   isRendering = false;
 }
+let scrollTicking = false;
 window.addEventListener('scroll', () => {
   if (loading || isRendering) return;
-  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 800) {
-    const list = activeFilter==='all' ? articles : articles.filter(a=>a.source===activeFilter);
-    const filteredList = searchQuery 
-      ? list.filter(a => a.title.toLowerCase().includes(searchQuery) || a.textContent.toLowerCase().includes(searchQuery))
-      : list;
-      
-    if (displayLimit < filteredList.length) {
-      displayLimit += 24;
-      renderArticles();
-    }
+  if (!scrollTicking) {
+    window.requestAnimationFrame(() => {
+      if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 800) {
+        const list = activeFilter==='all' ? articles : articles.filter(a=>a.source===activeFilter);
+        const filteredList = searchQuery 
+          ? list.filter(a => a.title.toLowerCase().includes(searchQuery) || a.textContent.toLowerCase().includes(searchQuery))
+          : list;
+          
+        if (displayLimit < filteredList.length) {
+          displayLimit += 24;
+          renderArticles();
+        }
+      }
+      scrollTicking = false;
+    });
+    scrollTicking = true;
   }
-});
+}, { passive: true });
 function copyArticleText(id) {
   const article = articles.find(a => a.id === id);
   if (!article || !article.textContent) {
@@ -1693,7 +2075,7 @@ function renderSidebar() {
     const isActive = activeFilter===f.name;
     const item = document.createElement('div');
     item.className = `feed-item ${isActive ? 'active' : ''}`;
-    item.onclick = () => renderArticles(f.name);
+    item.onclick = () => { renderArticles(f.name); closeMobileSidebar(); };
     item.style.setProperty('--active-color', c);
     item.style.setProperty('--item-color', c);
     item.innerHTML = `<div class="feed-dot"></div><div class="feed-name">${esc(f.name)}</div>`;
@@ -1782,6 +2164,25 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape') closeModal();
   if(e.key==='Enter'&&document.getElementById('modalOverlay').classList.contains('open')) addFeed();
 });
+
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const isOpen = sidebar.classList.contains('open');
+  if (isOpen) {
+    closeMobileSidebar();
+  } else {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+  }
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+}
 
 let toastTimer;
 function showToast(msg, isWarning=false){ 
