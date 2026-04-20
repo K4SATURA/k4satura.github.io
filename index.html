@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Gelişmiş RSS akış okuyucu, birden fazla kaynağı tek panelde takip edin.">
+<meta name="description" content="Gelişmiş RSS akış okuyucu — birden fazla kaynağı tek panelde takip edin.">
 <title>RSS Feeder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
@@ -1355,20 +1355,26 @@ const domSidebarFeeds = document.getElementById('sidebarFeeds');
 const domFeedCountLabel = document.getElementById('feedCountLabel');
 
 const DEFAULT_FEEDS = [
-  { id: 1, name: 'Anadolu Ajansı', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', active: true },
-  { id: 2, name: 'DefenceTurk', url: 'https://www.defenceturk.net/feed', active: true },
+  { id: 1, name: 'Defence Turk', url: 'https://www.defenceturk.net/feed', active: true },
+  { id: 2, name: 'Defense Feeds', url: 'https://defensefeeds.com/feed/', active: true },
   { id: 3, name: 'Defense News', url: 'https://www.defensenews.com/arc/outboundfeeds/rss/category/naval/?outputType=xml', active: true },
-  { id: 4, name: 'Naval Lookout', url: 'https://www.navylookout.com/feed/', active: true },
-  { id: 5, name: 'Naval News', url: 'https://www.navalnews.com/feed/', active: true },
-  { id: 6, name: 'Navy Times', url: 'https://www.navytimes.com/arc/outboundfeeds/rss/category/news/?outputType=xml', active: true },
-  { id: 7, name: 'Sanayi Gazetesi', url: 'https://sanayigazetesi.com.tr/kategori/savunma-haberleri/feed/', active: true },
-  { id: 8, name: 'SavunmaSanayiST', url: 'https://www.savunmasanayist.com/feed/', active: true },
-  { id: 9, name: 'SavunmaTR', url: 'https://www.savunmatr.com/feed/', active: true },
-  { id: 10, name: 'US Navy', url: 'https://www.navy.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=2&Site=1067&max=10', active: true }
+  { id: 4, name: 'MarineLink', url: 'https://www.marinelink.com/news/rss', active: true },
+  { id: 5, name: 'Naval Analyses', url: 'https://www.navalanalyses.com/feeds/posts/default', active: true },
+  { id: 6, name: 'Navy Lookout', url: 'https://www.navylookout.com/feed/', active: true },
+  { id: 7, name: 'Naval News', url: 'https://www.navalnews.com/feed/', active: true },
+  { id: 8, name: 'Naval Technology', url: 'https://www.naval-technology.com/feed/', active: true },
+  { id: 9, name: 'Naval Today', url: 'https://www.navaltoday.com/feed/', active: true },
+  { id: 10, name: 'Navy Times', url: 'https://www.navytimes.com/arc/outboundfeeds/rss/category/news/?outputType=xml', active: true },
+  { id: 11, name: 'Sanayi Gazetesi', url: 'https://sanayigazetesi.com.tr/kategori/savunma-haberleri/feed/', active: true },
+  { id: 12, name: 'SavunmaSanayiST', url: 'https://www.savunmasanayist.com/feed/', active: true },
+  { id: 13, name: 'SavunmaTR', url: 'https://www.savunmatr.com/feed/', active: true },
+  { id: 14, name: 'Seapower Magazine', url: 'https://seapowermagazine.org/feed/', active: true },
+  { id: 15, name: 'U.S. Navy Press', url: 'https://www.navy.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=2&Site=1067&max=10', active: true }
 ];
 const FEED_COLORS = [
   '#00d2d3', '#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb',
-  '#1dd1a1', '#5f27cd', '#ff9f43', '#0abde3', '#ee5253'
+  '#1dd1a1', '#5f27cd', '#ff9f43', '#0abde3', '#ee5253',
+  '#2ed573', '#1e90ff', '#ffa502', '#ff4757', '#7bed9f'
 ];
 
 let feeds=[], articles=[], activeFilter='all', loading=false;
