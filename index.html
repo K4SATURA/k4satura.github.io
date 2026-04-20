@@ -1,0 +1,1826 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Gelişmiş RSS akış okuyucu — birden fazla kaynağı tek panelde takip edin.">
+<title>RSS Feeder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="Assets/logo.svg">
+<script src="https://cdn.jsdelivr.net/npm/rss-parser@3.13.0/dist/rss-parser.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html[data-theme="dark"] {
+  --bg:          #07090c;
+  --surface:     #0e1318;
+  --surface2:    #141b23;
+  --border:      #1e2a38;
+  --border2:     #2a3a50;
+  --accent:      #c8a84b;
+  --accent-dim:  rgba(200,168,75,0.13);
+  --accent-glow: rgba(200,168,75,0.25);
+  --text:        #c0cdd8;
+  --text-bright: #e4eef6;
+  --muted:       #4e6070;
+  --muted2:      #6a7f94;
+  --red:         #7a2020;
+  --red-text:    #d06060;
+  --timer-color: #ffffff;
+  --img-filter:  brightness(0.88) saturate(0.72);
+  --img-hover:   brightness(1) saturate(0.9);
+  --modal-bg:    rgba(4,6,8,0.92);
+  --scanline:    rgba(0,0,0,0.03);
+  --toast-bg:    rgba(14, 19, 24, 0.9);
+}
+
+html[data-theme="light"] {
+  --bg:          #faf9f6;
+  --surface:     #ffffff;
+  --surface2:    #f2f0e6;
+  --border:      #e6e4dc;
+  --border2:     #d1cfc7;
+  --accent:      #d97706;
+  --accent-dim:  rgba(217, 119, 6, 0.08);
+  --accent-glow: rgba(217, 119, 6, 0.2);
+  --text:        #52524f;
+  --text-bright: #2b2b2a;
+  --muted:       #8a8984;
+  --muted2:      #b3b2ad;
+  --red:         #fce8e6;
+  --red-text:    #d93025;
+  --timer-color: #2b2b2a;
+  --img-filter:  brightness(0.96) contrast(0.95);
+  --img-hover:   brightness(1) contrast(1);
+  --modal-bg:    rgba(43, 43, 42, 0.5);
+  --scanline:    rgba(0,0,0,0.025);
+  --toast-bg:    rgba(255, 255, 255, 0.95);
+}
+
+html { scroll-behavior: smooth; }
+
+/* CUSTOM SCROLLBARS */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--accent) 30%, transparent); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Barlow', sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, var(--scanline) 2px, var(--scanline) 4px);
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.5;
+}
+
+header {
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding: 0 2rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: background 0.25s, border-color 0.25s;
+}
+header::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0; width: 450px;
+  background: url('assets/rss_banner.png') no-repeat center left;
+  background-size: cover;
+  opacity: 0.25;
+  z-index: -1;
+  mask-image: linear-gradient(90deg, black 40%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, black 40%, transparent 100%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+html[data-theme="light"] header::before {
+  mix-blend-mode: multiply;
+  opacity: 0.12;
+}
+
+.logo-wrap { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
+
+.modern-radar {
+  width: 40px; height: 40px;
+  position: relative;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: inset 0 0 15px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 15px color-mix(in srgb, var(--accent) 15%, transparent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.radar-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.radar-ring.r1 { width: 18px; height: 18px; border-style: dashed; animation: spin-slow 10s linear infinite; }
+.radar-ring.r2 { width: 32px; height: 32px; opacity: 0.6; }
+.radar-core {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent), 0 0 15px var(--accent);
+  z-index: 5;
+}
+.radar-sweep-container {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 2;
+}
+.radar-sweep {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: conic-gradient(from 0deg, transparent 70%, color-mix(in srgb, var(--accent) 80%, transparent) 100%);
+  border-radius: 50%;
+  animation: radar-sweep 2.5s linear infinite;
+}
+.radar-sweep::after {
+  content: ''; position: absolute; top: 0; left: 50%; width: 2px; height: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform: translateX(-50%);
+}
+.radar-blip {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--text-bright);
+  box-shadow: 0 0 10px var(--text-bright), 0 0 20px var(--accent); z-index: 3;
+  opacity: 0;
+}
+.radar-blip.b1 { top: 10px; right: 8px; animation: blip-flash 2.5s infinite 0.4s; }
+.radar-blip.b2 { bottom: 8px; left: 10px; animation: blip-flash 2.5s infinite 1.6s; }
+
+@keyframes radar-sweep { 100% { transform: rotate(360deg); } }
+@keyframes spin-slow { 100% { transform: rotate(360deg); } }
+@keyframes blip-flash { 
+  0% { opacity: 0; transform: scale(0); }
+  10% { opacity: 1; transform: scale(1.5); }
+  40% { opacity: 0; transform: scale(1); }
+  100% { opacity: 0; }
+}
+
+.logo-text {
+  font-family: 'Barlow', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--text-bright) 0%, color-mix(in srgb, var(--text-bright) 40%, var(--accent)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent));
+  transition: all 0.3s ease;
+}
+
+.header-right { display: flex; align-items: center; gap: 12px; }
+
+.k4satura-brand {
+  font-family: 'Barlow', sans-serif;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: -1px;
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(79, 172, 254, 0.4));
+}
+
+.brand-time-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding-right: 14px;
+  border-right: 1px solid var(--border2);
+  margin-right: 14px;
+}
+
+.header-clock {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-bright);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.header-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-top: 2px;
+  letter-spacing: 0.05em;
+}
+
+.btn-theme {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--surface2) 50%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-bright);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+.btn-theme:hover { 
+  background: color-mix(in srgb, var(--surface2) 90%, transparent);
+  border-color: var(--accent); 
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.btn-theme svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.icon-moon { display: block; }
+.icon-sun  { display: none;  }
+html[data-theme="light"] .icon-moon { display: none; }
+html[data-theme="light"] .icon-sun  { display: block; }
+
+.btn-manage {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-bright);
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  padding: 8px 18px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex; align-items: center; gap: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.btn-manage:hover {
+  background: color-mix(in srgb, var(--surface2) 80%, transparent);
+  border-color: var(--text-bright);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transform: translateY(-1px);
+}
+.btn-manage svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.main-wrap { display: flex; min-height: calc(100vh - 64px); }
+
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  padding: 1.25rem 0;
+  position: sticky;
+  top: 80px;
+  height: calc(100vh - 96px);
+  overflow-y: auto;
+  margin: 16px;
+  margin-right: 0;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.sidebar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0 1.1rem 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+
+.feed-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 1.1rem;
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 3px solid transparent;
+  background: transparent;
+  position: relative;
+}
+.feed-item:hover { background: var(--surface2); }
+.feed-item.active { 
+  background: linear-gradient(90deg, color-mix(in srgb, var(--active-color, var(--accent)) 12%, transparent) 0%, transparent 100%);
+  border-left-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.feed-item.active::after {
+  content: ''; position: absolute; left: 0; top: 0; width: 3px; height: 100%;
+  background: var(--active-color, var(--accent));
+  box-shadow: 0 0 15px var(--active-color, var(--accent));
+  animation: feedBorderPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes feedBorderPulse {
+  0%, 100% { box-shadow: 0 0 8px color-mix(in srgb, var(--active-color, var(--accent)) 40%, transparent); }
+  50% { box-shadow: 0 0 20px var(--active-color, var(--accent)); }
+}
+
+.feed-item.active::before {
+  content: ''; position: absolute; left: -100%; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-color, var(--accent)) 15%, transparent), transparent);
+  animation: feedSweep 3s infinite linear;
+}
+
+@keyframes feedSweep {
+  0% { left: -100%; }
+  50%, 100% { left: 100%; }
+}
+
+.feed-dot { 
+  width: 6px; height: 6px; 
+  border-radius: 50%; 
+  background: var(--item-color, var(--accent)); 
+  flex-shrink: 0;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.feed-item.active .feed-dot {
+  box-shadow: 0 0 10px var(--active-color, var(--accent)), 0 0 20px color-mix(in srgb, var(--active-color, var(--accent)) 40%, transparent);
+  animation: dotPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 8px var(--active-color, var(--accent)); transform: scale(1); }
+  50% { box-shadow: 0 0 16px var(--active-color, var(--accent)), 0 0 28px color-mix(in srgb, var(--active-color, var(--accent)) 30%, transparent); transform: scale(1.25); }
+}
+
+.feed-name {
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--item-color, var(--text));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.feed-item.active .feed-name { 
+  color: var(--item-color, var(--text-bright)); 
+  font-weight: 700;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--item-color, var(--accent)) 30%, transparent);
+}
+
+.all-feeds-wrap {
+  padding: 0 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 15px;
+}
+
+.all-feeds-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px;
+  cursor: pointer;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  border-radius: 2px;
+}
+.all-feeds-btn::before {
+  content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+  transition: 0.5s;
+}
+.all-feeds-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.2), 0 0 15px var(--accent-dim);
+  transform: translateY(-2px);
+}
+.all-feeds-btn:hover::before { left: 100%; }
+.all-feeds-btn.active {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 20px var(--accent-glow);
+  animation: allFeedsPulse 2.5s infinite;
+}
+.all-feeds-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.5; transition: all 0.3s; }
+@keyframes allFeedsPulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.3), 0 0 15px var(--accent-glow); }
+  50% { box-shadow: 0 4px 25px rgba(0,0,0,0.4), 0 0 30px var(--accent-glow); }
+}
+
+.content { flex: 1; padding: 2rem 2rem 3rem; min-width: 0; position: relative; }
+
+.content-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.feed-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.feed-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 10%, transparent);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.feed-count svg {
+  width: 14px; height: 14px;
+  fill: none; stroke: currentColor; stroke-width: 2.2;
+}
+
+.btn-refresh {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--bg);
+  background: linear-gradient(135deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 60%, white) 100%);
+  border: none;
+  padding: 9px 22px;
+  border-radius: 24px;
+  cursor: pointer;
+  letter-spacing: 0.12em;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--accent) 40%, transparent), inset 0 1px 1px rgba(255,255,255,0.4);
+  margin-top: 10px;
+}
+.btn-refresh:hover:not(:disabled) {
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 50%, transparent), inset 0 1px 1px rgba(255,255,255,0.6);
+  transform: translateY(-2px) scale(1.02);
+}
+.btn-refresh:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.btn-refresh svg { 
+  width: 15px; height: 15px; 
+  fill: none; stroke: currentColor; stroke-width: 2.5; 
+  will-change: transform;
+}
+.btn-refresh:hover:not(:disabled) svg {
+  animation: spin-btn 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+@keyframes spin-btn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.btn-refresh:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  border: none;
+  color: var(--muted);
+  box-shadow: none;
+}
+.btn-refresh.loading svg { animation: spin-btn 1s linear infinite; }
+.btn-refresh svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.5; }
+
+@keyframes spin  { to { transform: rotate(360deg); } }
+
+.news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 24px;
+  position: relative;
+  align-items: stretch;
+}
+
+.news-grid.is-loading::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 4px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scan-line 2s linear infinite;
+  z-index: 10;
+  box-shadow: 0 0 15px var(--accent);
+}
+
+@keyframes scan-line {
+  0% { top: 0; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.news-card {
+  background: var(--surface);
+  border: 1px solid var(--card-color, var(--border));
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  contain: content;
+  border-radius: 8px;
+  transform: perspective(1000px) translateZ(0);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform, border-color, box-shadow;
+  transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.1s linear;
+}
+.news-card:hover { 
+  border-color: var(--card-color, var(--border2)); 
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25); 
+}
+.news-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--card-color, var(--accent)), transparent);
+  opacity: 0; transition: opacity 0.3s;
+  z-index: 5;
+  border-radius: 6px 6px 0 0;
+}
+.news-card:hover::before { opacity: 1; }
+
+/* Performance: content-visibility for virtual scrolling effect */
+.news-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 500px; /* Guessing average height */
+}
+.card-img-wrap { width: 100%; height: 185px; overflow: hidden; background: var(--surface2); position: relative; }
+.card-img-wrap .img-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+.card-img-wrap img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  filter: var(--img-filter);
+  transition: transform 0.3s, filter 0.3s, opacity 0.3s;
+  z-index: 2;
+}
+.news-card:hover .card-img-wrap img { transform: scale(1.04); filter: var(--img-hover); }
+
+.card-source {
+  position: absolute; top: 10px; left: 10px; z-index: 3;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--card-color, var(--accent));
+  background: rgba(7,9,12,0.82);
+  border: 1px solid var(--card-color, var(--accent));
+  padding: 2px 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
+
+.card-body { padding: 15px 18px 17px; display: flex; flex-direction: column; flex: 1; }
+.card-title {
+  font-family: 'Barlow', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-bright);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-snippet {
+  font-size: 13px;
+  color: var(--muted2);
+  line-height: 1.55;
+  margin-bottom: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+
+.card-date { 
+  font-family: 'JetBrains Mono', monospace; 
+  font-size: 10.5px; 
+  color: var(--muted2); 
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--surface2) 40%, transparent);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: -0.01em;
+}
+.card-date svg { width: 12px; height: 12px; opacity: 0.6; }
+
+.card-actions { display: flex; align-items: center; gap: 8px; }
+.card-btn-copy {
+  background: none;
+  border: 1px solid var(--card-color, var(--accent));
+  color: var(--card-color, var(--accent));
+  width: 27px; height: 27px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s;
+  border-radius: 2px;
+  opacity: 0.75;
+}
+.card-btn-copy:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 15%, transparent);
+}
+.card-btn-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.card-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--card-color, var(--accent));
+  text-decoration: none;
+  border: 1px solid var(--card-color, var(--accent));
+  opacity: 0.75;
+  padding: 5px 12px;
+  letter-spacing: 0.06em;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.card-link:hover { 
+  opacity: 1; 
+  background: color-mix(in srgb, var(--card-color, var(--accent)) 15%, transparent); 
+}
+.card-link svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+
+.empty-state { grid-column: 1 / -1; text-align: center; padding: 7rem 2rem; }
+.empty-state svg { width: 72px; height: 72px; margin: 0 auto 24px; display: block; opacity: 0.15; color: var(--accent); filter: drop-shadow(0 0 20px var(--accent-glow)); }
+.empty-state-text { font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; color: var(--muted); letter-spacing: 0.1em; }
+
+.skeleton { background: color-mix(in srgb, var(--surface) 50%, transparent); border: 1px solid var(--border); overflow: hidden; position: relative; border-radius: 8px; }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface2) 80%, transparent), transparent);
+  animation: shimmer 1.5s infinite linear;
+}
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.skel-img  { width: 100%; height: 185px; background: color-mix(in srgb, var(--surface2) 40%, transparent); border-bottom: 1px solid var(--border); }
+.skel-body { padding: 15px 18px 17px; }
+.skel-line { height: 11px; background: color-mix(in srgb, var(--surface2) 70%, transparent); border-radius: 2px; margin-bottom: 9px; }
+
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: var(--modal-bg);
+  z-index: 500; display: none;
+  align-items: center; justify-content: center; padding: 2rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.modal-overlay.open { display: flex; animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes modalFadeIn { 0% { opacity: 0; backdrop-filter: blur(0px); } 100% { opacity: 1; backdrop-filter: blur(12px); } }
+
+.modal {
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  width: 100%; max-width: 580px; max-height: 82vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 25px 80px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+  transform: translateY(0);
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.modal-title { 
+  font-family: 'JetBrains Mono', monospace; 
+  font-size: 14px; 
+  font-weight: 700;
+  color: var(--accent); 
+  letter-spacing: 0.15em; 
+  text-transform: uppercase; 
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-title::before {
+  content: '';
+  width: 4px; height: 16px;
+  background: var(--accent);
+  display: inline-block;
+}
+
+.modal-close {
+  background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  font-size: 17px; transition: all 0.2s;
+}
+.modal-close:hover { color: var(--text-bright); border-color: var(--border2); }
+
+.modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+
+.add-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+.form-row  { display: flex; gap: 8px; }
+
+.form-input {
+  flex: 1;
+  background: color-mix(in srgb, var(--surface2) 30%, transparent);
+  border: 1px solid var(--border);
+  color: var(--text-bright);
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  padding: 12px 16px;
+  outline: none;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+.form-input::placeholder { color: var(--muted); }
+.form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent); background: var(--bg); }
+
+.btn-add {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  padding: 12px 24px;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap; flex-shrink: 0;
+  border-radius: 6px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.btn-add:hover { background: var(--text-bright); box-shadow: 0 6px 20px rgba(0,0,0,0.3); transform: translateY(-1px); }
+
+.feed-list-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--muted);
+  letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: 10px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.feed-list-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); margin-bottom: 8px;
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
+  border-radius: 8px;
+  transition: border-color 0.2s, background 0.25s, transform 0.2s;
+}
+.feed-list-item:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+  background: var(--surface2);
+}
+
+.feed-toggle {
+  width: 38px; height: 22px;
+  background: #e05252;
+  border-radius: 20px;
+  cursor: pointer; appearance: none;
+  position: relative; flex-shrink: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  outline: none; border: none;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+.feed-toggle::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px; width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+.feed-toggle:checked { background: #43b581; }
+.feed-toggle:checked::after { transform: translateX(16px); }
+
+.feed-info { flex: 1; min-width: 0; }
+.feed-info-name { font-family: 'Barlow', sans-serif; font-size: 14px; font-weight: 600; color: var(--text-bright); }
+.feed-info-url  { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+
+.btn-delete, .btn-edit {
+  background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 4px 9px; letter-spacing: 0.05em; transition: all 0.2s; flex-shrink: 0;
+}
+.btn-delete:hover { color: var(--red-text); border-color: var(--red); }
+.btn-edit:hover { color: var(--accent); border-color: var(--accent-glow); }
+
+.btn-reset-defaults {
+  background: color-mix(in srgb, var(--surface2) 30%, transparent);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-left: auto;
+}
+.btn-reset-defaults:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  box-shadow: 0 0 12px var(--accent-dim);
+}
+
+.toast {
+  position: fixed;
+  bottom: 2.5rem;
+  right: 2.5rem;
+  background: var(--toast-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  color: var(--text-bright);
+  font-family: 'JetBrains Mono', monospace;
+  z-index: 1000;
+  transform: translateX(120%) scale(0.9);
+  opacity: 0;
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.4), 0 0 20px color-mix(in srgb, var(--accent) 5%, transparent);
+  min-width: 340px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toast.show { transform: translateX(0); opacity: 1; }
+
+.toast-body {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.toast-icon {
+  width: 32px; height: 32px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toast-message { font-size: 13px; line-height: 1.4; }
+
+.toast-progress { height: 3px; width: 100%; background: var(--border); position: relative; }
+
+.toast-progress-bar {
+  height: 100%; width: 100%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transform-origin: left;
+}
+
+/* ── SEARCH BAR ── */
+.search-wrap {
+  flex: 1; max-width: 420px; margin: 0 20px;
+  position: relative; display: flex; align-items: center;
+}
+.search-icon {
+  position: absolute; left: 14px; width: 16px; height: 16px;
+  color: var(--muted); fill: none; stroke: currentColor;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  pointer-events: none; transition: color 0.3s;
+}
+.search-wrap:focus-within .search-icon { color: var(--accent); }
+.search-input {
+  width: 100%; padding: 9px 36px 9px 40px;
+  background: color-mix(in srgb, var(--surface2) 30%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  border-radius: 24px; color: var(--text-bright);
+  font-family: 'Barlow', sans-serif; font-size: 14px; outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+.search-input::placeholder { color: var(--muted); }
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+.search-clear {
+  position: absolute; right: 8px; width: 24px; height: 24px;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 13px; display: none; align-items: center; justify-content: center;
+  border-radius: 50%; transition: color 0.2s, background 0.2s;
+}
+.search-clear.visible { display: flex; }
+.search-clear:hover { color: var(--text-bright); background: var(--surface2); }
+
+/* ── THEME TRANSITION ── */
+#themeTransition {
+  position: fixed; inset: 0; z-index: 9999;
+  pointer-events: none; display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .news-grid { grid-template-columns: 1fr; gap: 16px; }
+  header { padding: 0 1rem; }
+  .content { padding: 1rem; }
+  .k4satura-brand { display: none; }
+  .search-wrap { max-width: 180px; margin: 0 8px; }
+  .toast { right: 1rem; bottom: 1.5rem; min-width: calc(100% - 2rem); }
+}
+</style>
+</head>
+<body>
+
+<div id="themeTransition"></div>
+
+<header>
+  <div class="logo-wrap">
+    <div class="modern-radar">
+      <div class="radar-sweep-container"><div class="radar-sweep"></div></div>
+      <div class="radar-core"></div>
+      <div class="radar-ring r1"></div>
+      <div class="radar-ring r2"></div>
+      <div class="radar-blip b1"></div>
+      <div class="radar-blip b2"></div>
+    </div>
+    <div class="logo-text">RSS FEEDER</div>
+  </div>
+
+  <div class="search-wrap">
+    <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input type="text" class="search-input" id="searchInput" placeholder="Haberlerde ara..." oninput="handleSearch(this.value)">
+    <button class="search-clear" id="searchClear" onclick="clearSearch()">✕</button>
+  </div>
+
+  <div class="header-right">
+    <div class="brand-time-wrap">
+      <div class="header-clock" id="headerClock">00:00:00</div>
+      <div class="header-date" id="headerDate">01.01.2026</div>
+    </div>
+    <div class="k4satura-brand">K4SATURA</div>
+    <button class="btn-theme" onclick="toggleTheme(event)" title="Tema değiştir">
+      <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>
+      <svg class="icon-sun"  viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1"  x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22"  y1="4.22"  x2="5.64"  y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1"  y1="12" x2="3"  y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22"  y1="19.78" x2="5.64"  y2="18.36"/>
+        <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+    <button class="btn-manage" onclick="openModal()">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="square"/></svg>
+      KAYNAKLAR
+    </button>
+  </div>
+</header>
+
+<div class="main-wrap">
+  <aside class="sidebar">
+    <div class="all-feeds-wrap">
+      <div class="all-feeds-btn" id="btnAllFeeds" onclick="renderArticles('all')">
+        <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        TÜM HABERLER
+      </div>
+    </div>
+    <div class="sidebar-label">
+      <span>KAYNAKLAR</span>
+      <span id="feedCountLabel">0</span>
+    </div>
+    <div id="sidebarFeeds"></div>
+  </aside>
+
+  <main class="content">
+    <div class="content-header">
+      <div>
+        <div class="feed-title" id="activeFeedTitle">TÜM HABERLER</div>
+        <div class="feed-count" id="articleCount"></div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="feed-count" id="autoRefreshCounter" title="Otomatik yenileme süresi">05:00</div>
+        <button class="btn-refresh" id="refreshBtn" onclick="manualRefresh()">
+          <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          YENİLE
+        </button>
+      </div>
+    </div>
+    <div class="news-grid" id="newsGrid"></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">KAYNAK YÖNETİMİ</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="add-form">
+        <div class="form-row">
+          <input type="text" class="form-input" id="newFeedName" placeholder="Kaynak Adı">
+        </div>
+        <div class="form-row">
+          <input type="text" class="form-input" id="newFeedUrl" placeholder="RSS Bağlantısı">
+          <button class="btn-add" id="btnAddFeed" onclick="addFeed()">EKLE</button>
+        </div>
+      </div>
+      <div class="feed-list-label">
+        <span>KAYITLI KAYNAKLAR</span>
+        <button class="btn-reset-defaults" onclick="resetToDefaultFeeds()">VARSAYILANLARI YÜKLE</button>
+      </div>
+      <div id="modalFeedList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-body">
+    <div class="toast-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path id="toastIconPath" d="M20 6L9 17L4 12"/></svg>
+    </div>
+    <div class="toast-content">
+      <div class="toast-message" id="toastMsg"></div>
+    </div>
+  </div>
+  <div class="toast-progress">
+    <div class="toast-progress-bar" id="toastProgressBar"></div>
+  </div>
+</div>
+
+<script>
+const domActiveFeedTitle = document.getElementById('activeFeedTitle');
+const domArticleCount = document.getElementById('articleCount');
+const domNewsGrid = document.getElementById('newsGrid');
+const domSidebarFeeds = document.getElementById('sidebarFeeds');
+const domFeedCountLabel = document.getElementById('feedCountLabel');
+
+const DEFAULT_FEEDS = [
+  { id: 1, name: 'Anadolu Ajansı', url: 'https://www.aa.com.tr/tr/rss/default?cat=guncel', active: true },
+  { id: 2, name: 'DefenceTurk', url: 'https://www.defenceturk.net/feed', active: true },
+  { id: 3, name: 'Defense News', url: 'https://www.defensenews.com/arc/outboundfeeds/rss/category/naval/?outputType=xml', active: true },
+  { id: 4, name: 'Naval Lookout', url: 'https://www.navylookout.com/feed/', active: true },
+  { id: 5, name: 'Naval News', url: 'https://www.navalnews.com/feed/', active: true },
+  { id: 6, name: 'Navy Times', url: 'https://www.navytimes.com/arc/outboundfeeds/rss/category/news/?outputType=xml', active: true },
+  { id: 7, name: 'Sanayi Gazetesi', url: 'https://sanayigazetesi.com.tr/kategori/savunma-haberleri/feed/', active: true },
+  { id: 8, name: 'SavunmaSanayiST', url: 'https://www.savunmasanayist.com/feed/', active: true },
+  { id: 9, name: 'SavunmaTR', url: 'https://www.savunmatr.com/feed/', active: true },
+  { id: 10, name: 'US Navy', url: 'https://www.navy.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=2&Site=1067&max=10', active: true }
+];
+const FEED_COLORS = [
+  '#00d2d3', '#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb',
+  '#1dd1a1', '#5f27cd', '#ff9f43', '#0abde3', '#ee5253'
+];
+
+let feeds=[], articles=[], activeFilter='all', loading=false;
+let readArticles = new Set();
+let searchQuery = '';
+let displayLimit = 24;
+let isRendering = false;
+let refreshInterval = null;
+let timeLeft = 300; 
+function initApp() {
+  initTheme();
+  const storedRead = localStorage.getItem('rssfeeder_read');
+  if(storedRead) readArticles = new Set(JSON.parse(storedRead));
+  loadFeeds();
+  renderSidebar();
+  loadAllFeeds();
+  startHeaderClock();
+}
+
+function startHeaderClock() {
+  const update = () => {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2, '0');
+    const m = now.getMinutes().toString().padStart(2, '0');
+    const s = now.getSeconds().toString().padStart(2, '0');
+    const clockEl = document.getElementById('headerClock');
+    const dateEl = document.getElementById('headerDate');
+    if(clockEl) clockEl.textContent = `${h}:${m}:${s}`;
+    if(dateEl) dateEl.textContent = `${now.getDate().toString().padStart(2,'0')}.${(now.getMonth()+1).toString().padStart(2,'0')}.${now.getFullYear()}`;
+  };
+  update();
+  setInterval(update, 1000);
+}
+
+function initTheme() {
+  const s = localStorage.getItem('rssfeeder_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', s);
+}
+
+function toggleTheme(event) {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const nxt = cur === 'dark' ? 'light' : 'dark';
+  
+  const overlay = document.getElementById('themeTransition');
+  const x = event ? event.clientX : window.innerWidth / 2;
+  const y = event ? event.clientY : window.innerHeight / 2;
+  const endRadius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+  overlay.style.display = 'block';
+  overlay.style.background = nxt === 'dark' ? '#07090c' : '#faf9f6';
+  overlay.style.clipPath = `circle(0px at ${x}px ${y}px)`;
+  
+  const anim = overlay.animate(
+    [
+      { clipPath: `circle(0px at ${x}px ${y}px)` },
+      { clipPath: `circle(${endRadius}px at ${x}px ${y}px)` }
+    ],
+    {
+      duration: 500,
+      easing: 'ease-in-out'
+    }
+  );
+
+  anim.onfinish = () => {
+    document.documentElement.setAttribute('data-theme', nxt);
+    localStorage.setItem('rssfeeder_theme', nxt);
+    overlay.style.display = 'none';
+  };
+}
+
+function handleSearch(val) {
+  searchQuery = val.toLowerCase();
+  const clearBtn = document.getElementById('searchClear');
+  if(searchQuery) clearBtn.classList.add('visible');
+  else clearBtn.classList.remove('visible');
+  renderArticles();
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  handleSearch('');
+}
+
+function markAsRead(id) {
+  readArticles.add(id);
+  localStorage.setItem('rssfeeder_read', JSON.stringify([...readArticles]));
+  renderArticles();
+}
+
+function initTilt(card) {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const percentX = (x - centerX) / centerX;
+    const percentY = (y - centerY) / centerY;
+    
+    const rotateX = percentY * -5; 
+    const rotateY = percentX * 5;
+    
+    card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(5px)`;
+  });
+  
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = `perspective(800px) rotateX(0deg) rotateY(0deg) translateZ(0)`;
+  });
+}
+function sortFeedsAlphabetically() {
+  feeds.sort((a, b) => a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' }));
+}
+
+function loadFeeds() {
+  try { 
+    const s = localStorage.getItem('rssfeeder_feeds'); 
+    feeds = s ? JSON.parse(s) : [...DEFAULT_FEEDS];
+    if(!s) saveFeeds(); // Save defaults if first time
+  }
+  catch(e) { feeds = [...DEFAULT_FEEDS]; }
+  sortFeedsAlphabetically();
+}
+
+function resetToDefaultFeeds() {
+  if (confirm('Tüm mevcut kaynaklarınız silinecek ve varsayılan liste yüklenecek. Emin misiniz?')) {
+    feeds = JSON.parse(JSON.stringify(DEFAULT_FEEDS));
+    saveFeeds();
+    renderModalFeedList();
+    renderSidebar();
+    loadAllFeeds();
+    showToast('Varsayılan kaynaklar yüklendi.');
+  }
+}
+
+function saveFeeds() { 
+  sortFeedsAlphabetically();
+  try { localStorage.setItem('rssfeeder_feeds',JSON.stringify(feeds)); } catch(e){} 
+}
+
+function formatStaticDate(str) {
+  if(!str) return '—';
+  try {
+    const d = new Date(str);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch(e) { return '—'; }
+}
+
+function stripHtml(h) { 
+  return h ? String(h).replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1').replace(/<[^>]+>/g,'').trim() : ''; 
+}
+
+function getPlainText(h) {
+  if(!h) return '';
+  let str = String(h).replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1');
+  if(str.includes('&lt;')) {
+     const txt = document.createElement('textarea');
+     txt.innerHTML = str;
+     str = txt.value;
+  }
+  try {
+    const doc = new DOMParser().parseFromString(str, 'text/html');
+    return doc.body.textContent.trim().replace(/\s+/g, ' ');
+  } catch(e) { return str.replace(/<[^>]+>/g,'').trim().replace(/\s+/g, ' '); }
+}
+
+function extractImageFromHtml(htmlContent) {
+  if (!htmlContent) return null;
+  try {
+    if (htmlContent.includes('&lt;')) {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = htmlContent;
+      htmlContent = txt.value;
+    }
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlContent, 'text/html');
+    const images = Array.from(doc.querySelectorAll('img'));
+    
+    for (let img of images) {
+      let url = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || img.getAttribute('src');
+      if (!url) continue;
+      url = url.trim();
+      if (url.startsWith('data:')) continue;
+      if (url.startsWith('//')) url = 'https:' + url; else if (url.startsWith('/')) continue; 
+      if (url.length < 10) continue;
+      
+      const skipKeywords = ['pixel','tracker','stats','logo','icon','avatar','spinner','placeholder'];
+      const lowerUrl = url.toLowerCase();
+      if (skipKeywords.some(k => lowerUrl.includes(k))) continue;
+      if (img.getAttribute('width') === '1' || img.getAttribute('height') === '1') continue;
+      
+      return url; 
+    }
+  } catch (e) {}
+  return null;
+}
+
+const feedCache = new Map();
+
+function getBestImage(it) {
+  const checkUrl = (url) => url && typeof url === 'string' && url.startsWith('http') ? url : null;
+  const isImageUrl = (url) => url && /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/i.test(url);
+
+  if (checkUrl(it.thumbnail)) return it.thumbnail;
+  if (checkUrl(it.image)) return it.image;
+  if (it.image && it.image.url && checkUrl(it.image.url)) return it.image.url;
+
+  const extractMedia = (obj) => {
+    if (!obj) return null;
+    const arr = Array.isArray(obj) ? obj : [obj];
+    for (const item of arr) {
+      if (!item) continue;
+      const url = checkUrl(item.$?.url || item.url);
+      const type = (item.$?.type || item.type || '').toLowerCase();
+      if (url && (type.startsWith('image/') || isImageUrl(url))) return url;
+    }
+    for (const item of arr) {
+      if (!item) continue;
+      const url = checkUrl(item.$?.url || item.url);
+      const type = (item.$?.type || item.type || '').toLowerCase();
+      if (url && !type.startsWith('video/') && !type.startsWith('audio/')) return url;
+    }
+    return null;
+  };
+
+  const mThumb = extractMedia(it['media:thumbnail']) || extractMedia(it.mediaThumbnail);
+  if (mThumb) return mThumb;
+  
+  if (it['media:group']) {
+    const mg = it['media:group'];
+    const tUrl = extractMedia(mg['media:thumbnail']);
+    if (tUrl) return tUrl;
+    const cUrl = extractMedia(mg['media:content']) || extractMedia(mg.$ && mg.$.url ? mg : null);
+    if (cUrl) return cUrl;
+  }
+  if (it.mediaGroup) {
+     const tUrl = extractMedia(it.mediaGroup.mediaThumbnail);
+     if (tUrl) return tUrl;
+     const cUrl = extractMedia(it.mediaGroup.mediaContent || it.mediaGroup);
+     if (cUrl) return cUrl;
+  }
+
+  const mContent = extractMedia(it['media:content']) || extractMedia(it.mediaContent);
+  if (mContent) return mContent;
+
+  if (it['itunes:image'] && it['itunes:image']['$']) return checkUrl(it['itunes:image']['$'].href);
+  if (it.itunes && it.itunes.image) return checkUrl(it.itunes.image);
+
+  const encs = Array.isArray(it.enclosure) ? it.enclosure : [it.enclosure].filter(Boolean);
+  for (const enc of encs) {
+    const encUrl = checkUrl(enc.url) || checkUrl(enc.link) || checkUrl(enc.href);
+    if (encUrl && /image/i.test(enc.type || '')) return encUrl;
+    if (encUrl && isImageUrl(encUrl)) return encUrl;
+  }
+  for (const enc of encs) {
+    const encUrl = checkUrl(enc.url) || checkUrl(enc.link) || checkUrl(enc.href);
+    if (encUrl && !/video|audio/i.test(enc.type || '')) return encUrl;
+  }
+  
+  const links = Array.isArray(it.links) ? it.links : [it.link].filter(Boolean);
+  for (const l of links) {
+    const lObj = l.$ || l;
+    if (lObj && lObj.rel === 'enclosure' && checkUrl(lObj.href)) {
+       if (/image/i.test(lObj.type || '') || isImageUrl(lObj.href)) return lObj.href;
+    }
+  }
+
+  const htmlParts = [it.content, it['content:encoded'], it.description, it.summary, it['content:encodedSnippet']];
+  let combinedHtml = htmlParts.filter(Boolean).join(' ');
+  const fromHtml = extractImageFromHtml(combinedHtml);
+  if (fromHtml) return fromHtml;
+
+  return null;
+}
+
+async function fetchFeed(feed) {
+  const cacheKey = feed.url;
+  const cached = feedCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < 5 * 60 * 1000)) {
+    return cached.data;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  const endpoints = [
+    { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json' },
+    { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`, type: 'xml' },
+    { url: `https://corsproxy.io/?${encodeURIComponent(feed.url)}`, type: 'xml' }
+  ];
+
+  const fetchPromise = (ep) => fetch(ep.url, { signal: controller.signal })
+    .then(async res => {
+      if (!res.ok) throw new Error('Not ok');
+      if (ep.type === 'json') {
+        const data = await res.json();
+        if (data.status === 'ok' && data.items && data.items.length > 0) {
+          return data.items.map(it => {
+            let img = getBestImage(it);
+            return {
+              id: Math.random().toString(36).substr(2, 9),
+              title: stripHtml(it.title) || 'Başlıksız İçerik',
+              link: it.link || it.guid || '#',
+              image: img,
+              textContent: getPlainText(it.content || it['content:encoded'] || it.description || it.summary || ''),
+              date: it.pubDate || '',
+              source: feed.name
+            };
+          });
+        }
+        throw new Error('Invalid JSON');
+      } else {
+        const text = await res.text();
+        if (!text || text.includes('cloudflare') || text.startsWith('<!DOCTYPE html>')) throw new Error('Invalid XML');
+        if (typeof RSSParser !== 'undefined') {
+          const parser = new RSSParser({
+            customFields: {
+              item: [
+                ['media:content', 'mediaContent', {keepArray: false}],
+                ['media:thumbnail', 'mediaThumbnail', {keepArray: false}],
+                ['media:group', 'mediaGroup', {keepArray: false}],
+                ['itunes:image', 'itunesImage', {keepArray: false}],
+                ['enclosure', 'enclosure', {keepArray: false}]
+              ]
+            }
+          });
+          const parsedData = await parser.parseString(text);
+          if (parsedData && parsedData.items) {
+            return parsedData.items.slice(0, 25).map(it => {
+              let img = getBestImage(it);
+              return {
+                id: Math.random().toString(36).substr(2, 9),
+                title: stripHtml(it.title) || 'Başlıksız İçerik',
+                link: it.link || '#',
+                image: img,
+                textContent: getPlainText(it.content || it['content:encoded'] || it.contentSnippet || it.description || it.summary || ''),
+                date: it.isoDate || it.pubDate || '',
+                source: feed.name,
+              };
+            });
+          }
+        }
+        throw new Error('Parse failed');
+      }
+    });
+
+  try {
+    const result = await Promise.any(endpoints.map(fetchPromise));
+    clearTimeout(timeoutId);
+    feedCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    return result;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (cached) return cached.data;
+    return { error: true, source: feed.name };
+  }
+}
+
+function startAutoRefresh() {
+  clearInterval(refreshInterval);
+  timeLeft = 300; 
+  updateCounterDisplay();
+  refreshInterval = setInterval(() => {
+    if (loading) return;
+    timeLeft--;
+    updateCounterDisplay();
+    if (timeLeft <= 0) loadAllFeeds();
+  }, 1000);
+}
+
+function updateCounterDisplay() {
+  let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+  let s = (timeLeft % 60).toString().padStart(2, '0');
+  const counterEl = document.getElementById('autoRefreshCounter');
+  if(counterEl) counterEl.innerHTML = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>${m}:${s}`;
+}
+
+function manualRefresh() { 
+  location.reload();
+}
+
+async function loadAllFeeds() {
+  if(loading) return;
+  loading=true;
+  
+  const refreshBtn = document.getElementById('refreshBtn');
+  
+  if(refreshBtn) { refreshBtn.classList.add('loading'); refreshBtn.disabled = true; }
+  if(domNewsGrid) domNewsGrid.classList.add('is-loading');
+
+  showSkeletons();
+  articles=[];
+  let failedFeeds = [];
+  const active=feeds.filter(f=>f.active);
+  const res=await Promise.allSettled(active.map(f=>fetchFeed(f)));
+  res.forEach(r=>{ 
+    if(r.status==='fulfilled') {
+      if (r.value.error) failedFeeds.push(r.value.source); else articles.push(...r.value);
+    } 
+  });
+  articles.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  
+  loading=false;
+  if(refreshBtn) { refreshBtn.classList.remove('loading'); refreshBtn.disabled = false; }
+  if(domNewsGrid) domNewsGrid.classList.remove('is-loading');
+  
+  renderArticles();
+  renderSidebar();
+  startAutoRefresh(); 
+  if (failedFeeds.length > 0) showToast(`Erişilemeyen kaynaklar: ${failedFeeds.join(', ')}`, true);
+  else if (articles.length > 0) showToast('Kaynaklar güncellendi.');
+}
+
+function showSkeletons() {
+  domNewsGrid.innerHTML=Array(9).fill(0).map(()=>`
+    <div class="skeleton">
+      <div class="skel-img"></div>
+      <div class="skel-body">
+        <div class="skel-line" style="width:38%;margin-bottom:13px"></div>
+        <div class="skel-line" style="width:95%"></div>
+        <div class="skel-line" style="width:55%;margin-top:18px"></div>
+      </div>
+    </div>`).join('');
+  domArticleCount.textContent='';
+}
+
+function renderArticles(filter) {
+  if(filter!==undefined) { 
+    activeFilter=filter; 
+    displayLimit = 24;
+    renderSidebar(); 
+    window.scrollTo(0,0);
+  }
+  
+  let list = activeFilter==='all' ? articles : articles.filter(a=>a.source===activeFilter);
+  
+  if (searchQuery) {
+    list = list.filter(a => 
+      a.title.toLowerCase().includes(searchQuery) || 
+      a.textContent.toLowerCase().includes(searchQuery)
+    );
+  }
+
+  domActiveFeedTitle.textContent=activeFilter==='all'?'TÜM HABERLER':activeFilter.toLocaleUpperCase('tr-TR');
+  domArticleCount.innerHTML = `<svg viewBox="0 0 24 24"><path d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" stroke-linecap="round" stroke-linejoin="round"/></svg>${list.length} HABER`;
+
+  const refreshBtn = document.getElementById('refreshBtn');
+  const refreshCounter = document.getElementById('autoRefreshCounter');
+  if (activeFilter === 'all') {
+    if(refreshBtn) refreshBtn.style.display = 'flex';
+    if(refreshCounter) refreshCounter.style.display = 'flex';
+  } else {
+    if(refreshBtn) refreshBtn.style.display = 'none';
+    if(refreshCounter) refreshCounter.style.display = 'none';
+  }
+
+  if(!list.length) {
+    domNewsGrid.innerHTML=`<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg><div class="empty-state-text">${searchQuery ? 'ARAMA SONUCU BULUNAMADI' : 'GÖSTERİLECEK İÇERİK BULUNAMADI'}</div></div>`;
+    return;
+  }
+  
+  isRendering = true;
+  const chunk = list.slice(0, displayLimit);
+  const colorMap = {};
+  feeds.filter(f=>f.active).forEach((f, idx) => { colorMap[f.name] = FEED_COLORS[idx % FEED_COLORS.length]; });
+  
+  const frag = document.createDocumentFragment();
+  chunk.forEach(a=>{
+    const c = colorMap[a.source] || 'var(--accent)';
+    const initials = a.source.split(' ').map(n=>n[0]).join('').substring(0,2).toLocaleUpperCase('tr-TR');
+    const imgSrc = esc(a.image || '');
+    const isRead = readArticles.has(a.id);
+    
+    const imgProxy1 = imgSrc ? esc(`https://wsrv.nl/?url=${encodeURIComponent(a.image)}`) : '';
+    const imgProxy2 = imgSrc ? esc(`https://api.allorigins.win/raw?url=${encodeURIComponent(a.image)}`) : '';
+    
+    let domain = '';
+    try { domain = new URL(a.link).hostname; } catch(e) {}
+    const faviconTag = domain ? `<img src="https://www.google.com/s2/favicons?domain=${esc(domain)}&sz=64" style="position: static; width: 48px; height: 48px; object-fit: contain; filter: grayscale(1) opacity(0.5); transform: none;" alt="">` : '';
+    
+    const card = document.createElement('div');
+    card.className = 'news-card';
+    card.style.setProperty('--card-color', c);
+    
+    let imgTag = '';
+    if (imgSrc) {
+        imgTag = `<img src="${imgSrc}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(!this.dataset.retry1){this.dataset.retry1='1';this.src='${imgProxy1}';}else if(!this.dataset.retry2){this.dataset.retry2='1';this.src='${imgProxy2}';}else{this.style.display='none';}">`;
+    }
+
+    card.innerHTML = `
+      <div class="card-img-wrap">
+        <div class="img-placeholder" style="background: color-mix(in srgb, ${c} 15%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; z-index: 1;">
+          ${faviconTag}
+          <span style="color: ${c}; font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: bold; letter-spacing: 2px;">${initials}</span>
+        </div>
+        ${imgTag}
+        <div class="card-source">${esc(a.source)}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-title">${esc(a.title)}</div>
+        <div class="card-snippet">${esc(a.textContent)}</div>
+        <div class="card-footer">
+          <div class="card-date">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            ${formatStaticDate(a.date)}
+          </div>
+          <div class="card-actions">
+            <button class="card-btn-copy" onclick="copyArticleText('${a.id}')" title="Metni Kopyala">
+              <svg viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <a href="${esc(a.link)}" target="_blank" rel="noopener" class="card-link" onclick="markAsRead('${a.id}')">OKU<svg viewBox="0 0 24 24"><path d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    initTilt(card);
+    frag.appendChild(card);
+  });
+  domNewsGrid.innerHTML = '';
+  domNewsGrid.appendChild(frag);
+  isRendering = false;
+}
+window.addEventListener('scroll', () => {
+  if (loading || isRendering) return;
+  if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 800) {
+    const list = activeFilter==='all' ? articles : articles.filter(a=>a.source===activeFilter);
+    const filteredList = searchQuery 
+      ? list.filter(a => a.title.toLowerCase().includes(searchQuery) || a.textContent.toLowerCase().includes(searchQuery))
+      : list;
+      
+    if (displayLimit < filteredList.length) {
+      displayLimit += 24;
+      renderArticles();
+    }
+  }
+});
+function copyArticleText(id) {
+  const article = articles.find(a => a.id === id);
+  if (!article || !article.textContent) {
+    showToast('Kopyalanacak metin bulunamadı.', true);
+    return;
+  }
+  navigator.clipboard.writeText(article.textContent).then(() => {
+    showToast('Haber metni başarıyla kopyalandı.');
+  }).catch(err => {
+    showToast('Kopyalama başarısız oldu.', true);
+  });
+}
+
+function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'):''; }
+
+function renderSidebar() {
+  const activeFeeds = feeds.filter(f=>f.active);
+  domFeedCountLabel.textContent=activeFeeds.length;
+  
+  const isAllActive = activeFilter === 'all';
+  const btnAll = document.getElementById('btnAllFeeds');
+  if (btnAll) {
+    if (isAllActive) btnAll.classList.add('active');
+    else btnAll.classList.remove('active');
+  }
+
+  const frag = document.createDocumentFragment();
+
+  activeFeeds.forEach((f, idx)=>{
+    const c = FEED_COLORS[idx % FEED_COLORS.length];
+    const isActive = activeFilter===f.name;
+    const item = document.createElement('div');
+    item.className = `feed-item ${isActive ? 'active' : ''}`;
+    item.onclick = () => renderArticles(f.name);
+    item.style.setProperty('--active-color', c);
+    item.style.setProperty('--item-color', c);
+    item.innerHTML = `<div class="feed-dot"></div><div class="feed-name">${esc(f.name)}</div>`;
+    frag.appendChild(item);
+  });
+  domSidebarFeeds.innerHTML = '';
+  domSidebarFeeds.appendChild(frag);
+}
+
+function renderModalFeedList() {
+  const el=document.getElementById('modalFeedList');
+  if(!feeds.length){ el.innerHTML=`<div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);padding:1rem 0;text-align:center">Henüz kaynak eklenmedi.</div>`; return; }
+  el.innerHTML=feeds.map((f,i)=>`
+    <div class="feed-list-item">
+      <input type="checkbox" class="feed-toggle" ${f.active?'checked':''} onchange="toggleFeed(${i},this.checked)">
+      <div class="feed-info">
+        <div class="feed-info-name">${esc(f.name)}</div>
+        <div class="feed-info-url">${esc(f.url)}</div>
+      </div>
+      <button class="btn-edit" onclick="editFeed(${i})">DÜZENLE</button>
+      <button class="btn-delete" onclick="deleteFeed(${i})">KALDIR</button>
+    </div>`).join('');
+}
+
+let editingIndex = -1;
+
+function editFeed(i) {
+  editingIndex = i;
+  const feed = feeds[i];
+  document.getElementById('newFeedName').value = feed.name;
+  document.getElementById('newFeedUrl').value = feed.url;
+  document.getElementById('btnAddFeed').textContent = 'KAYDET';
+  document.getElementById('newFeedName').focus();
+}
+
+function addFeed() {
+  const n=document.getElementById('newFeedName'), u=document.getElementById('newFeedUrl');
+  const name=n.value.trim(), url=u.value.trim();
+  if(!name||!url){ showToast('Kaynak adı ve bağlantı adresi gereklidir.', true); return; }
+  if(!url.startsWith('http')){ showToast('Geçersiz bağlantı formatı.', true); return; }
+  
+  if (editingIndex > -1) {
+    feeds[editingIndex].name = name;
+    feeds[editingIndex].url = url;
+    editingIndex = -1;
+    document.getElementById('btnAddFeed').textContent = 'EKLE';
+    showToast(`"${name}" güncellendi.`);
+  } else {
+    feeds.push({ id:Date.now(), name, url, active:true });
+    showToast(`"${name}" başarıyla eklendi.`);
+  }
+  
+  saveFeeds(); renderModalFeedList(); renderSidebar();
+  n.value=''; u.value='';
+  loadAllFeeds();
+}
+
+function deleteFeed(i) {
+  const name=feeds[i].name; feeds.splice(i,1);
+  if (editingIndex === i) {
+    editingIndex = -1;
+    document.getElementById('btnAddFeed').textContent = 'EKLE';
+    document.getElementById('newFeedName').value = '';
+    document.getElementById('newFeedUrl').value = '';
+  } else if (editingIndex > i) {
+    editingIndex--;
+  }
+  saveFeeds(); renderModalFeedList(); renderSidebar();
+  showToast(`"${name}" kaldırıldı.`, true);
+  if(activeFilter===name) renderArticles('all'); else renderArticles();
+}
+
+function toggleFeed(i,checked){ feeds[i].active=checked; saveFeeds(); renderSidebar(); loadAllFeeds(); }
+function openModal()  { 
+  editingIndex = -1;
+  document.getElementById('btnAddFeed').textContent = 'EKLE';
+  document.getElementById('newFeedName').value = '';
+  document.getElementById('newFeedUrl').value = '';
+  renderModalFeedList(); 
+  document.getElementById('modalOverlay').classList.add('open'); 
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalOutside(e){ if(e.target===document.getElementById('modalOverlay')) closeModal(); }
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeModal();
+  if(e.key==='Enter'&&document.getElementById('modalOverlay').classList.contains('open')) addFeed();
+});
+
+let toastTimer;
+function showToast(msg, isWarning=false){ 
+  const el=document.getElementById('toast'); 
+  const msgEl=document.getElementById('toastMsg'); 
+  const bar = document.getElementById('toastProgressBar');
+  const iconPath = document.getElementById('toastIconPath');
+  const duration = 4500;
+  
+  msgEl.textContent = msg; 
+  
+  if(isWarning) {
+    el.style.borderColor = 'var(--red-text)';
+    bar.style.background = 'var(--red-text)';
+    bar.style.boxShadow = '0 0 8px var(--red-text)';
+    if(iconPath) iconPath.setAttribute('d', 'M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z M12 8V12 M12 16H12.01');
+  } else {
+    el.style.borderColor = 'var(--border2)';
+    bar.style.background = 'var(--accent)';
+    bar.style.boxShadow = '0 0 8px var(--accent)';
+    if(iconPath) iconPath.setAttribute('d', 'M20 6L9 17L4 12');
+  }
+  
+  el.classList.add('show'); 
+  
+  bar.style.transition = 'none';
+  bar.style.transform = 'scaleX(1)';
+  setTimeout(() => {
+    bar.style.transition = `transform ${duration}ms linear`;
+    bar.style.transform = 'scaleX(0)';
+  }, 50);
+
+  clearTimeout(toastTimer); 
+  toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+  }, duration); 
+}
+
+initApp();
+</script>
+</body>
+</html>

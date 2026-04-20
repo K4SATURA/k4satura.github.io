@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="geminiGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c8a84b"/>
+      <stop offset="0.5" stop-color="#feca57"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- "Chubby" Sparkle Shape to match Gemini's visual weight -->
+  <!-- We move the control points closer to the center to make the body thicker -->
+  <path d="M256 0C256 100 412 256 512 256C412 256 256 412 256 512C256 412 100 256 0 256C100 256 256 100 256 0Z" fill="url(#geminiGrad)"/>
+  
+  <!-- Subtle inner shine to give it 3D volume without fuzzy glow -->
+  <path d="M256 60C256 140 372 256 452 256C372 256 256 372 256 452C256 372 140 256 60 256C140 256 256 140 256 60Z" fill="white" fill-opacity="0.3"/>
+</svg>
