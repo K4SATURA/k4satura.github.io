@@ -525,23 +525,23 @@
     .feed-item.active::before {
       content: '';
       position: absolute;
-      left: -100%;
+      left: 0;
       top: 0;
       width: 100%;
       height: 100%;
       background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--active-color, var(--accent)) 15%, transparent), transparent);
       animation: feedSweep 3s infinite linear;
-      will-change: left;
+      will-change: transform;
     }
 
     @keyframes feedSweep {
       0% {
-        left: -100%;
+        transform: translateX(-100%);
       }
 
       50%,
       100% {
-        left: 100%;
+        transform: translateX(100%);
       }
     }
 
@@ -1430,28 +1430,39 @@
       margin-top: 2px;
     }
 
-    .btn-delete,
-    .btn-edit {
-      background: none;
-      border: 1px solid transparent;
+    .feed-action-badge {
+      background: color-mix(in srgb, var(--surface2) 30%, transparent);
+      border: 1px solid var(--border);
       color: var(--muted);
-      cursor: pointer;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      padding: 4px 9px;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
       letter-spacing: 0.05em;
       transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       flex-shrink: 0;
+      text-transform: uppercase;
+      user-select: none;
     }
 
-    .btn-delete:hover {
+    button.feed-action-badge {
+      cursor: pointer;
+    }
+
+    button.feed-action-badge.btn-delete:hover {
       color: var(--red-text);
-      border-color: var(--red);
+      border-color: color-mix(in srgb, var(--red-text) 40%, transparent);
+      background: color-mix(in srgb, var(--red-text) 10%, transparent);
     }
 
-    .btn-edit:hover {
+    button.feed-action-badge.btn-edit:hover {
       color: var(--accent);
-      border-color: var(--accent-glow);
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
     }
 
     .btn-reset-defaults {
@@ -1972,10 +1983,9 @@
         font-size: 10px;
       }
 
-      .btn-delete,
-      .btn-edit {
-        font-size: 10px;
-        padding: 3px 7px;
+      .feed-action-badge {
+        font-size: 9px;
+        padding: 4px 8px;
       }
 
       .toast {
@@ -2380,12 +2390,16 @@
       };
     }
 
+    let searchTimeout = null;
     function handleSearch(val) {
-      searchQuery = val.toLowerCase();
-      const clearBtn = document.getElementById('searchClear');
-      if (searchQuery) clearBtn.classList.add('visible');
-      else clearBtn.classList.remove('visible');
-      renderArticles();
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        searchQuery = val.toLowerCase();
+        const clearBtn = document.getElementById('searchClear');
+        if (searchQuery) clearBtn.classList.add('visible');
+        else clearBtn.classList.remove('visible');
+        renderArticles();
+      }, 300);
     }
 
     function clearSearch() {
@@ -2445,6 +2459,7 @@
     }
 
     function initTilt(card) {
+      if (window.matchMedia("(hover: none)").matches) return;
       let ticking = false;
       card.addEventListener('mousemove', e => {
         if (!ticking) {
@@ -2900,9 +2915,15 @@
       let failedFeeds = [];
       const active = feeds.filter(f => f.active);
       const res = await Promise.allSettled(active.map(f => fetchFeed(f)));
-      res.forEach(r => {
+      res.forEach((r, idx) => {
         if (r.status === 'fulfilled') {
-          if (r.value.error) failedFeeds.push(r.value.source); else articles.push(...r.value);
+          if (r.value.error) {
+            failedFeeds.push(r.value.source);
+          } else {
+            articles.push(...r.value);
+          }
+        } else {
+          failedFeeds.push(active[idx].name);
         }
       });
       articles.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -3123,8 +3144,8 @@
     function esc(s) { return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ''; }
 
     function renderSidebar() {
-      const activeFeeds = feeds.filter(f => f.active);
-      domFeedCountLabel.textContent = activeFeeds.length;
+      const activeFeedsCount = feeds.filter(f => f.active).length;
+      domFeedCountLabel.textContent = `${activeFeedsCount}/${feeds.length}`;
 
       const btnAll = document.getElementById('btnAllFeeds');
       const btnSaved = document.getElementById('btnSaved');
@@ -3133,15 +3154,28 @@
 
       const frag = document.createDocumentFragment();
 
-      activeFeeds.forEach((f, idx) => {
+      feeds.forEach((f, idx) => {
         const c = FEED_COLORS[idx % FEED_COLORS.length];
         const isActive = activeFilter === f.name;
+
         const item = document.createElement('div');
         item.className = `feed-item ${isActive ? 'active' : ''}`;
-        item.onclick = () => { renderArticles(f.name); closeMobileSidebar(); };
+
+        if (f.active) {
+            item.onclick = () => { renderArticles(f.name); closeMobileSidebar(); };
+            item.style.setProperty('--item-color', c);
+        } else {
+            item.onclick = () => { showToast('Bu kaynak pasif durumdadır.', true); };
+            item.style.setProperty('--item-color', 'var(--muted)');
+            item.style.opacity = '0.6';
+        }
+
         item.style.setProperty('--active-color', c);
-        item.style.setProperty('--item-color', c);
-        item.innerHTML = `<div class="feed-dot"></div><div class="feed-name">${esc(f.name)}</div>`;
+        
+        item.innerHTML = `
+          <div class="feed-dot" style="${!f.active ? 'background: var(--muted)' : ''}"></div>
+          <div class="feed-name" style="flex:1; ${!f.active ? 'color: var(--muted);' : ''}">${esc(f.name)}</div>
+        `;
         frag.appendChild(item);
       });
       domSidebarFeeds.innerHTML = '';
@@ -3154,12 +3188,14 @@
       el.innerHTML = feeds.map((f, i) => `
     <div class="feed-list-item">
       <input type="checkbox" class="feed-toggle" ${f.active ? 'checked' : ''} onchange="toggleFeed(${i},this.checked)">
-      <div class="feed-info">
+      <div class="feed-info" style="min-width: 0;">
         <div class="feed-info-name">${esc(f.name)}</div>
         <div class="feed-info-url">${esc(f.url)}</div>
       </div>
-      <button class="btn-edit" onclick="editFeed(${i})">DÜZENLE</button>
-      <button class="btn-delete" onclick="deleteFeed(${i})">KALDIR</button>
+      <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap;">
+        <button class="feed-action-badge btn-edit" onclick="editFeed(${i})">DÜZENLE</button>
+        <button class="feed-action-badge btn-delete" onclick="deleteFeed(${i})">KALDIR</button>
+      </div>
     </div>`).join('');
     }
 
