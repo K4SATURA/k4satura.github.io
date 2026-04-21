@@ -1785,22 +1785,25 @@ async function fetchFeed(feed) {
     return cached.data;
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
-
   const endpoints = [
     { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json' },
-    { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`, type: 'xml' },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`, type: 'allorigins' },
     { url: `https://corsproxy.io/?${encodeURIComponent(feed.url)}`, type: 'xml' }
   ];
 
-  const fetchPromise = (ep) => fetch(ep.url, { signal: controller.signal })
-    .then(async res => {
+  for (const ep of endpoints) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const res = await fetch(ep.url, { signal: controller.signal });
       if (!res.ok) throw new Error('Not ok');
+
+      let result = null;
       if (ep.type === 'json') {
         const data = await res.json();
         if (data.status === 'ok' && data.items && data.items.length > 0) {
-          return data.items.map(it => {
+          result = data.items.map(it => {
             let img = getBestImage(it, it.link || it.guid);
             return {
               id: Math.random().toString(36).substr(2, 9),
@@ -1812,10 +1815,18 @@ async function fetchFeed(feed) {
               source: feed.name
             };
           });
+        } else {
+          throw new Error('Invalid JSON');
         }
-        throw new Error('Invalid JSON');
       } else {
-        const text = await res.text();
+        let text = '';
+        if (ep.type === 'allorigins') {
+          const data = await res.json();
+          text = data.contents;
+        } else {
+          text = await res.text();
+        }
+        
         if (!text || text.includes('cloudflare') || text.startsWith('<!DOCTYPE html>')) throw new Error('Invalid XML');
         if (typeof RSSParser !== 'undefined') {
           const parser = new RSSParser({
@@ -1831,7 +1842,7 @@ async function fetchFeed(feed) {
           });
           const parsedData = await parser.parseString(text);
           if (parsedData && parsedData.items) {
-            return parsedData.items.map(it => {
+            result = parsedData.items.map(it => {
               let img = getBestImage(it, it.link || it.guid);
               return {
                 id: Math.random().toString(36).substr(2, 9),
@@ -1845,20 +1856,21 @@ async function fetchFeed(feed) {
             });
           }
         }
-        throw new Error('Parse failed');
+        if (!result) throw new Error('Parse failed');
       }
-    });
 
-  try {
-    const result = await Promise.any(endpoints.map(fetchPromise));
-    clearTimeout(timeoutId);
-    feedCache.set(cacheKey, { timestamp: Date.now(), data: result });
-    return result;
-  } catch (e) {
-    clearTimeout(timeoutId);
-    if (cached) return cached.data;
-    return { error: true, source: feed.name };
+      clearTimeout(timeoutId);
+      feedCache.set(cacheKey, { timestamp: Date.now(), data: result });
+      return result;
+    } catch (e) {
+      clearTimeout(timeoutId);
+      // Ignore error and try the next endpoint
+    }
   }
+
+  // All endpoints failed
+  if (cached) return cached.data;
+  return { error: true, source: feed.name };
 }
 
 function startAutoRefresh() {
