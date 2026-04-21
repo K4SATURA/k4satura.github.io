@@ -1139,7 +1139,7 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
   }
   .btn-refresh svg { width: 13px; height: 13px; }
 
-  #autoRefreshCounter {
+  #autoRefreshCounter, #readCounter {
     font-size: 11px;
     padding: 4px 8px;
   }
@@ -1306,6 +1306,10 @@ html[data-theme="light"] .card-source { background: rgba(255,255,255,0.9); }
         <div class="feed-count" id="articleCount"></div>
       </div>
       <div style="display: flex; align-items: center; gap: 15px;">
+        <div class="feed-count" id="readCounter" title="Okunan haber sayısı">
+          <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="readCountLabel">0</span>
+        </div>
         <div class="feed-count" id="autoRefreshCounter" title="Otomatik yenileme süresi">05:00</div>
         <button class="btn-refresh" id="refreshBtn" onclick="manualRefresh()">
           <svg viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1397,6 +1401,7 @@ function initApp() {
   initTheme();
   const storedRead = localStorage.getItem('rssfeeder_read');
   if(storedRead) readArticles = new Set(JSON.parse(storedRead));
+  updateReadCounter();
   loadFeeds();
   renderSidebar();
   loadAllFeeds();
@@ -1467,9 +1472,15 @@ function clearSearch() {
   handleSearch('');
 }
 
+function updateReadCounter() {
+  const el = document.getElementById('readCountLabel');
+  if (el) el.textContent = readArticles.size;
+}
+
 function markAsRead(id) {
   readArticles.add(id);
   localStorage.setItem('rssfeeder_read', JSON.stringify([...readArticles]));
+  updateReadCounter();
   renderArticles();
 }
 
