@@ -2118,7 +2118,7 @@ function copyArticleText(id) {
   }
 
   navigator.clipboard.writeText(contentToCopy).then(() => {
-    showToast('Haber başarıyla kopyalandı.');
+    showToast('Haber metni kopyalandı.');
   }).catch(err => {
     showToast('Kopyalama başarısız oldu.', true);
   });
