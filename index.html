@@ -2041,6 +2041,9 @@ function renderArticles(filter) {
             ${formatStaticDate(a.date)}
           </div>
           <div class="card-actions">
+            <button class="card-btn-copy" onclick="copyArticleLink('${a.id}')" title="Paylaş">
+              <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            </button>
             <button class="card-btn-copy" onclick="copyArticleText('${a.id}')" title="Metni Kopyala">
               <svg viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -2082,14 +2085,40 @@ window.addEventListener('scroll', () => {
     scrollTicking = true;
   }
 }, { passive: true });
+function copyArticleLink(id) {
+  const article = articles.find(a => a.id === id);
+  if (!article || !article.link) {
+    showToast('Bağlantı bulunamadı.', true);
+    return;
+  }
+  navigator.clipboard.writeText(article.link).then(() => {
+    showToast('Haber bağlantısı kopyalandı.');
+  }).catch(err => {
+    showToast('Kopyalama başarısız oldu.', true);
+  });
+}
+
 function copyArticleText(id) {
   const article = articles.find(a => a.id === id);
-  if (!article || !article.textContent) {
+  if (!article) return;
+  
+  const title = article.title ? article.title.trim() : '';
+  const text = article.textContent ? article.textContent.trim() : '';
+  
+  let contentToCopy = '';
+  if (title && text) {
+    contentToCopy = `${title}\n\n${text}`;
+  } else if (title) {
+    contentToCopy = title;
+  } else if (text) {
+    contentToCopy = text;
+  } else {
     showToast('Kopyalanacak metin bulunamadı.', true);
     return;
   }
-  navigator.clipboard.writeText(article.textContent).then(() => {
-    showToast('Haber metni başarıyla kopyalandı.');
+
+  navigator.clipboard.writeText(contentToCopy).then(() => {
+    showToast('Haber başarıyla kopyalandı.');
   }).catch(err => {
     showToast('Kopyalama başarısız oldu.', true);
   });
