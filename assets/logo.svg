@@ -7,10 +7,7 @@
     </linearGradient>
   </defs>
   
-  <!-- "Chubby" Sparkle Shape to match Gemini's visual weight -->
-  <!-- We move the control points closer to the center to make the body thicker -->
   <path d="M256 0C256 100 412 256 512 256C412 256 256 412 256 512C256 412 100 256 0 256C100 256 256 100 256 0Z" fill="url(#geminiGrad)"/>
   
-  <!-- Subtle inner shine to give it 3D volume without fuzzy glow -->
   <path d="M256 60C256 140 372 256 452 256C372 256 256 372 256 452C256 372 140 256 60 256C140 256 256 140 256 60Z" fill="white" fill-opacity="0.3"/>
 </svg>
