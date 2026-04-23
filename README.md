@@ -1,6 +1,7 @@
 # 📰 RSS Feeder
 
 Basit, hızlı ve ücretsiz RSS Feeder.
+> https://k4satura.github.io/
 
 ## 🚀 Özellikler
 
