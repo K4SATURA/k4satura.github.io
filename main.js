@@ -3,24 +3,6 @@ const domArticleCount = document.getElementById('articleCount');
 const domNewsGrid = document.getElementById('newsGrid');
 const domSidebarFeeds = document.getElementById('sidebarFeeds');
 const domFeedCountLabel = document.getElementById('feedCountLabel');
-
-const DEFAULT_FEEDS = [
-  { id: 1, name: 'Defence Turk', url: 'https://www.defenceturk.net/feed', active: true },
-  { id: 2, name: 'Defense Feeds', url: 'https://defensefeeds.com/feed/', active: true },
-  { id: 3, name: 'Defense News', url: 'https://www.defensenews.com/arc/outboundfeeds/rss/category/naval/?outputType=xml', active: true },
-  { id: 4, name: 'MarineLink', url: 'https://www.marinelink.com/news/rss', active: true },
-  { id: 5, name: 'Naval Analyses', url: 'https://www.navalanalyses.com/feeds/posts/default', active: true },
-  { id: 6, name: 'Navy Lookout', url: 'https://www.navylookout.com/feed/', active: true },
-  { id: 7, name: 'Naval News', url: 'https://www.navalnews.com/feed/', active: true },
-  { id: 8, name: 'Naval Technology', url: 'https://www.naval-technology.com/feed/', active: true },
-  { id: 9, name: 'Naval Today', url: 'https://www.navaltoday.com/feed/', active: true },
-  { id: 10, name: 'Navy Times', url: 'https://www.navytimes.com/arc/outboundfeeds/rss/category/news/?outputType=xml', active: true },
-  { id: 11, name: 'Sanayi Gazetesi', url: 'https://sanayigazetesi.com.tr/kategori/savunma-haberleri/feed/', active: true },
-  { id: 12, name: 'SavunmaSanayiST', url: 'https://www.savunmasanayist.com/feed/', active: true },
-  { id: 13, name: 'SavunmaTR', url: 'https://www.savunmatr.com/feed/', active: true },
-  { id: 14, name: 'Seapower Magazine', url: 'https://seapowermagazine.org/feed/', active: true },
-  { id: 15, name: 'U.S. Navy Press', url: 'https://www.navy.mil/DesktopModules/ArticleCS/RSS.ashx?ContentType=2&Site=1067&max=10', active: true }
-];
 const FEED_COLORS = [
   '#00d2d3', '#ff9ff3', '#feca57', '#ff6b6b', '#48dbfb',
   '#1dd1a1', '#5f27cd', '#ff9f43', '#0abde3', '#ee5253',
@@ -66,8 +48,16 @@ function initApp() {
     if (container) container.classList.add('active');
   }
 
+  const storedSelectedList = localStorage.getItem('rssfeeder_selected_list');
+  if (storedSelectedList) {
+    selectedListName = storedSelectedList;
+  } else {
+    selectedListName = "Gündem";
+  }
+
   updateReadCounter();
   loadFeeds();
+  populateListSelect(); // Ensure dropdown is updated
   renderSidebar();
   loadAllFeeds();
   startHeaderClock();
@@ -96,7 +86,6 @@ function initTheme() {
 function toggleTheme(event) {
   const cur = document.documentElement.getAttribute('data-theme');
   const nxt = cur === 'dark' ? 'light' : 'dark';
-
   const overlay = document.getElementById('themeTransition');
   const x = event ? event.clientX : window.innerWidth / 2;
   const y = event ? event.clientY : window.innerHeight / 2;
@@ -205,10 +194,8 @@ function initTilt(card) {
         const centerY = rect.height / 2;
         const percentX = (x - centerX) / centerX;
         const percentY = (y - centerY) / centerY;
-
         const rotateX = percentY * -5;
         const rotateY = percentX * 5;
-
         card.style.transform = `perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(5px)`;
         ticking = false;
       });
@@ -224,32 +211,202 @@ function sortFeedsAlphabetically() {
   feeds.sort((a, b) => a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' }));
 }
 
-function loadFeeds() {
-  try {
-    const s = localStorage.getItem('rssfeeder_feeds');
-    feeds = s ? JSON.parse(s) : [...DEFAULT_FEEDS];
-    if (!s) saveFeeds();
-  }
-  catch (e) {
-    feeds = [...DEFAULT_FEEDS];
-  }
-  sortFeedsAlphabetically();
-}
-
-function resetToDefaultFeeds() {
-  if (confirm('Tüm mevcut kaynaklarınız silinecek ve varsayılan liste yüklenecek. Emin misiniz?')) {
-    feeds = JSON.parse(JSON.stringify(DEFAULT_FEEDS));
-    saveFeeds();
-    renderModalFeedList();
-    renderSidebar();
-    loadAllFeeds();
-    showToast('Varsayılan kaynaklar yüklendi.');
-  }
-}
-
 function saveFeeds() {
   sortFeedsAlphabetically();
   try { localStorage.setItem('rssfeeder_feeds', JSON.stringify(feeds)); } catch (e) { }
+}
+
+function getCustomLists() {
+  const s = localStorage.getItem('rssfeeder_custom_lists');
+  return s ? JSON.parse(s) : {};
+}
+
+function saveCustomLists(lists) {
+  localStorage.setItem('rssfeeder_custom_lists', JSON.stringify(lists));
+}
+
+function loadFeeds() {
+  try {
+    const s = localStorage.getItem('rssfeeder_feeds');
+    feeds = s ? JSON.parse(s) : JSON.parse(JSON.stringify(PREDEFINED_LISTS["Gündem"]));
+    if (!s) {
+      feeds.forEach((f, i) => f.id = Date.now() + i);
+      saveFeeds();
+    }
+  }
+  catch (e) {
+    feeds = JSON.parse(JSON.stringify(PREDEFINED_LISTS["Gündem"]));
+    feeds.forEach((f, i) => f.id = Date.now() + i);
+  }
+  sortFeedsAlphabetically();
+}
+let selectedListName = "";
+
+function populateListSelect() {
+  const optionsContainer = document.getElementById('listOptions');
+  const triggerText = document.getElementById('listSelectTriggerText');
+  if (!optionsContainer || !triggerText) return;
+
+  optionsContainer.innerHTML = '';
+  const customLists = getCustomLists();
+
+  const createOption = (name, isHeader = false) => {
+    const div = document.createElement('div');
+    if (isHeader) {
+      div.className = 'custom-option-header';
+      div.textContent = name;
+    } else {
+      div.className = `custom-option ${selectedListName === name ? 'selected' : ''}`;
+      if (name === 'K4SATURA') div.classList.add('k4satura-option');
+      const span = document.createElement('span');
+      span.textContent = name;
+      div.appendChild(span);
+      div.onclick = () => selectList(name);
+    }
+    optionsContainer.appendChild(div);
+  };
+
+  if (Object.keys(customLists).length > 0) {
+    const customNames = Object.keys(customLists).sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
+    for (const name of customNames) {
+      createOption(name);
+    }
+  }
+
+  const predefinedNames = Object.keys(PREDEFINED_LISTS)
+    .filter(name => name !== 'K4SATURA')
+    .sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
+
+  for (const name of predefinedNames) {
+    createOption(name);
+  }
+
+  if (PREDEFINED_LISTS['K4SATURA']) {
+    createOption('K4SATURA');
+  }
+
+  if (selectedListName) {
+    triggerText.textContent = selectedListName;
+    if (selectedListName === 'K4SATURA') {
+      triggerText.classList.add('k4satura-brand-text');
+      triggerText.classList.remove('selected-list-text');
+    } else {
+      triggerText.classList.remove('k4satura-brand-text');
+      triggerText.classList.add('selected-list-text');
+    }
+  } else {
+    triggerText.textContent = 'Bir liste seçin...';
+    triggerText.classList.remove('k4satura-brand-text');
+    triggerText.classList.remove('selected-list-text');
+  }
+  handleListSelectChange();
+}
+function selectList(name) {
+  selectedListName = name;
+  localStorage.setItem('rssfeeder_selected_list', name);
+  document.getElementById('listSelectWrapper').classList.remove('open');
+  populateListSelect();
+}
+
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('listSelectWrapper');
+  if (!wrapper) return;
+  const isTrigger = e.target.closest('.custom-select-trigger');
+  if (isTrigger) {
+    wrapper.classList.toggle('open');
+  } else if (!e.target.closest('.custom-select-wrapper')) {
+    wrapper.classList.remove('open');
+  }
+});
+
+function handleListSelectChange() {
+  const btnDelete = document.getElementById('btnDeleteList');
+  const customLists = getCustomLists();
+
+  if (btnDelete) {
+    if (selectedListName && customLists[selectedListName]) {
+      btnDelete.style.display = 'inline-flex';
+    } else {
+      btnDelete.style.display = 'none';
+    }
+  }
+}
+
+function loadSelectedList() {
+  if (!selectedListName) {
+    showToast('Lütfen bir liste seçin.', true);
+    return;
+  }
+
+  let listToLoad = [];
+  if (PREDEFINED_LISTS[selectedListName]) {
+    listToLoad = JSON.parse(JSON.stringify(PREDEFINED_LISTS[selectedListName]));
+  } else {
+    const customLists = getCustomLists();
+    if (customLists[selectedListName]) {
+      listToLoad = JSON.parse(JSON.stringify(customLists[selectedListName]));
+    } else {
+      showToast('Liste bulunamadı.', true);
+      return;
+    }
+  }
+
+  if (confirm(`Mevcut kaynaklarınız silinecek ve "${selectedListName}" listesi yüklenecek. Emin misiniz?`)) {
+    feeds = listToLoad;
+    feeds.forEach((f, i) => f.id = Date.now() + i);
+    saveFeeds();
+    if (typeof renderModalFeedList === 'function') renderModalFeedList();
+    populateListSelect();
+    renderSidebar();
+    loadAllFeeds();
+    showToast(`"${selectedListName}" listesi yüklendi.`);
+  }
+}
+
+function saveCurrentAsList() {
+  const input = document.getElementById('newListName');
+  if (!input) return;
+  const listName = input.value.trim();
+  if (!listName) {
+    showToast('Lütfen liste adını girin.', true);
+    return;
+  }
+  if (PREDEFINED_LISTS[listName]) {
+    showToast('Bu isimde hazır bir liste zaten var.', true);
+    return;
+  }
+
+  const customLists = getCustomLists();
+  const currentFeedsToSave = feeds.map(f => ({ name: f.name, url: f.url, active: f.active }));
+  customLists[listName] = currentFeedsToSave;
+  saveCustomLists(customLists);
+
+  input.value = '';
+  selectedListName = listName;
+  localStorage.setItem('rssfeeder_selected_list', listName);
+  populateListSelect();
+  showToast(`Liste "${listName}" olarak kaydedildi.`);
+}
+
+function deleteSelectedList() {
+  if (!selectedListName) return;
+
+  if (PREDEFINED_LISTS[selectedListName]) {
+    showToast('Hazır listeler silinemez.', true);
+    return;
+  }
+
+  const customLists = getCustomLists();
+  if (customLists[selectedListName]) {
+    if (confirm(`"${selectedListName}" listesini silmek istediğinize emin misiniz?`)) {
+      delete customLists[selectedListName];
+      saveCustomLists(customLists);
+      selectedListName = "";
+      localStorage.removeItem('rssfeeder_selected_list');
+      populateListSelect();
+      showToast(`Liste silindi.`);
+    }
+  }
 }
 
 function formatStaticDate(str) {
@@ -278,10 +435,10 @@ function getPlainText(h) {
   try {
     const doc = new DOMParser().parseFromString(str, 'text/html');
     return doc.body.textContent.trim().replace(/\s+/g, ' ');
-    } catch (e) {
-      return str.replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' ');
-    }
+  } catch (e) {
+    return str.replace(/<[^>]+>/g, '').trim().replace(/\s+/g, ' ');
   }
+}
 
 function extractImageFromHtml(htmlContent, baseUrl) {
   if (!htmlContent) return null;
@@ -392,11 +549,9 @@ function extractImageFromHtml(htmlContent, baseUrl) {
       const url = validateUrl(match[1]);
       if (url) return url;
     }
-
   } catch (e) { }
   return null;
 }
-
 const feedCache = new Map();
 
 function decodeImageUrl(url) {
@@ -499,7 +654,6 @@ function getBestImage(it, baseUrl) {
   let combinedHtml = htmlParts.filter(Boolean).join(' ');
   const fromHtml = extractImageFromHtml(combinedHtml, baseUrl || it.link || it.guid);
   if (fromHtml) return fromHtml;
-
   return null;
 }
 function generateStableId(str) {
@@ -511,7 +665,6 @@ function generateStableId(str) {
   }
   return 'id_' + Math.abs(hash).toString(36);
 }
-
 async function fetchFeed(feed) {
   const cacheKey = feed.url;
   const cached = feedCache.get(cacheKey);
@@ -604,7 +757,6 @@ async function fetchFeed(feed) {
   if (cached) return cached.data;
   return { error: true, source: feed.name };
 }
-
 function startAutoRefresh() {
   clearInterval(refreshInterval);
   timeLeft = 300;
@@ -628,7 +780,6 @@ function manualRefresh() {
   feedCache.clear();
   loadAllFeeds();
 }
-
 async function loadAllFeeds() {
   if (loading) return;
   loading = true;
@@ -647,13 +798,23 @@ async function loadAllFeeds() {
     if (r.status === 'fulfilled') {
       if (r.value.error) {
         failedFeeds.push(r.value.source);
+        const feedIndex = feeds.findIndex(f => f.name === r.value.source);
+        if (feedIndex > -1 && feeds[feedIndex].active) {
+          feeds[feedIndex].active = false;
+        }
       } else {
         articles.push(...r.value);
       }
     } else {
-      failedFeeds.push(active[idx].name);
+      const sourceName = active[idx].name;
+      failedFeeds.push(sourceName);
+      const feedIndex = feeds.findIndex(f => f.name === sourceName);
+      if (feedIndex > -1 && feeds[feedIndex].active) {
+        feeds[feedIndex].active = false;
+      }
     }
   });
+  if (failedFeeds.length > 0) saveFeeds();
   articles.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   loading = false;
@@ -689,7 +850,7 @@ function renderArticles(filter) {
 
   let list = [];
   if (activeFilter === 'all') list = articles;
-  else if (activeFilter === 'saved') list = Array.from(savedArticlesMap.values()).sort((a,b) => new Date(b.date) - new Date(a.date));
+  else if (activeFilter === 'saved') list = Array.from(savedArticlesMap.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
   else list = articles.filter(a => a.source === activeFilter);
 
   if (showUnreadOnly) {
@@ -842,7 +1003,6 @@ function copyArticleLink(id) {
     showToast('Kopyalama başarısız oldu.', true);
   });
 }
-
 function copyArticleText(id) {
   const article = articles.find(a => a.id === id);
   if (!article) return;
@@ -870,7 +1030,6 @@ function copyArticleText(id) {
 }
 
 function esc(s) { return s ? String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;') : ''; }
-
 function renderSidebar() {
   const activeFeedsCount = feeds.filter(f => f.active).length;
   domFeedCountLabel.textContent = `${activeFeedsCount}/${feeds.length}`;
@@ -890,12 +1049,12 @@ function renderSidebar() {
     item.className = `feed-item ${isActive ? 'active' : ''}`;
 
     if (f.active) {
-        item.onclick = () => { renderArticles(f.name); closeMobileSidebar(); };
-        item.style.setProperty('--item-color', c);
+      item.onclick = () => { renderArticles(f.name); closeMobileSidebar(); };
+      item.style.setProperty('--item-color', c);
     } else {
-        item.onclick = () => { showToast('Bu kaynak pasif durumdadır.', true); };
-        item.style.setProperty('--item-color', 'var(--muted)');
-        item.style.opacity = '0.6';
+      item.onclick = () => { showToast('Bu kaynak pasif durumdadır.', true); };
+      item.style.setProperty('--item-color', 'var(--muted)');
+      item.style.opacity = '0.6';
     }
 
     item.style.setProperty('--active-color', c);
@@ -982,11 +1141,11 @@ function openModal() {
   document.getElementById('newFeedName').value = '';
   document.getElementById('newFeedUrl').value = '';
   renderModalFeedList();
+  populateListSelect();
   document.getElementById('modalOverlay').classList.add('open');
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 function closeModalOutside(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
-
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
   if (e.key === 'Enter' && document.getElementById('modalOverlay').classList.contains('open')) addFeed();

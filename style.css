@@ -257,14 +257,17 @@ html[data-theme="light"] header::before {
     opacity: 0;
     transform: scale(0);
   }
+
   10% {
     opacity: 1;
     transform: scale(1.5);
   }
+
   40% {
     opacity: 0;
     transform: scale(1);
   }
+
   100% {
     opacity: 0;
   }
@@ -1272,17 +1275,25 @@ html[data-theme="light"] .card-source {
   gap: 8px;
 }
 
+.form-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .form-input {
   flex: 1;
+  height: 44px;
   background: color-mix(in srgb, var(--surface2) 30%, transparent);
   border: 1px solid var(--border);
   color: var(--text-bright);
   font-family: 'Barlow', sans-serif;
   font-size: 14px;
-  padding: 12px 16px;
+  padding: 0 16px;
   outline: none;
   border-radius: 6px;
   transition: all 0.3s;
+  box-sizing: border-box;
 }
 
 .form-input::placeholder {
@@ -1295,6 +1306,140 @@ html[data-theme="light"] .card-source {
   background: var(--bg);
 }
 
+.custom-select-wrapper {
+  position: relative;
+  flex: 1;
+  user-select: none;
+}
+
+.custom-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  padding: 0 16px;
+  background: color-mix(in srgb, var(--surface2) 30%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-bright);
+  font-family: 'Barlow', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-sizing: border-box;
+}
+
+.custom-select-trigger:hover {
+  background: color-mix(in srgb, var(--surface2) 60%, transparent);
+  border-color: var(--border2);
+}
+
+.custom-select-wrapper.open .custom-select-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.custom-select-trigger svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s;
+}
+
+.custom-select-wrapper.open .custom-select-trigger svg {
+  transform: rotate(180deg);
+}
+
+.custom-options {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.custom-select-wrapper.open .custom-options {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.custom-option {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-option span {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+
+.custom-option:hover {
+  background: var(--surface2);
+  color: var(--text-bright);
+}
+
+.custom-option.selected {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.custom-option-header {
+  padding: 10px 16px 6px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.selected-list-text {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.k4satura-brand-text,
+.custom-option.k4satura-option span {
+  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  transition: filter 0.3s ease;
+}
+
+.custom-option.k4satura-option:hover span {
+  filter: drop-shadow(0 0 8px rgba(79, 172, 254, 0.6));
+}
+
+.custom-option.selected.k4satura-option {
+  background: color-mix(in srgb, #4facfe 15%, transparent);
+}
+
+
+select.form-input {
+  display: none;
+}
+
 .btn-add {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -1302,7 +1447,11 @@ html[data-theme="light"] .card-source {
   color: var(--bg);
   background: var(--accent);
   border: none;
-  padding: 12px 24px;
+  height: 44px;
+  width: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   letter-spacing: 0.1em;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1310,6 +1459,7 @@ html[data-theme="light"] .card-source {
   flex-shrink: 0;
   border-radius: 6px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 .btn-add:hover {
