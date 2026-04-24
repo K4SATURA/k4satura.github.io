@@ -342,6 +342,7 @@ function loadSelectedList() {
     }
   }
 
+  activeFilter = 'all';
   feeds = listToLoad;
   feeds.forEach((f, i) => f.id = Date.now() + i);
   saveFeeds();
