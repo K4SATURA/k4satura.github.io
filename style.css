@@ -1427,12 +1427,31 @@ html[data-theme="light"] .card-source {
   transition: filter 0.3s ease;
 }
 
+.user-list-text,
+.custom-option.user-list-option span {
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 20%, #f3f4f6 40%, #e5e7eb 60%, #d1d5db 80%, #9ca3af 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.3s ease;
+}
+
 .custom-option.k4satura-option:hover span {
-  filter: drop-shadow(0 0 8px rgba(79, 172, 254, 0.6));
+  filter: none;
+}
+
+.custom-option.user-list-option:hover span {
+  filter: none;
 }
 
 .custom-option.selected.k4satura-option {
   background: color-mix(in srgb, #4facfe 15%, transparent);
+}
+
+.custom-option.selected.user-list-option {
+  background: color-mix(in srgb, #ffffff 10%, transparent);
 }
 
 

@@ -52,7 +52,7 @@ function initApp() {
   if (storedSelectedList) {
     selectedListName = storedSelectedList;
   } else {
-    selectedListName = "Gündem";
+    selectedListName = "K4SATURA";
   }
 
   updateReadCounter();
@@ -228,14 +228,14 @@ function saveCustomLists(lists) {
 function loadFeeds() {
   try {
     const s = localStorage.getItem('rssfeeder_feeds');
-    feeds = s ? JSON.parse(s) : JSON.parse(JSON.stringify(PREDEFINED_LISTS["Gündem"]));
+    feeds = s ? JSON.parse(s) : JSON.parse(JSON.stringify(PREDEFINED_LISTS["K4SATURA"]));
     if (!s) {
       feeds.forEach((f, i) => f.id = Date.now() + i);
       saveFeeds();
     }
   }
   catch (e) {
-    feeds = JSON.parse(JSON.stringify(PREDEFINED_LISTS["Gündem"]));
+    feeds = JSON.parse(JSON.stringify(PREDEFINED_LISTS["K4SATURA"]));
     feeds.forEach((f, i) => f.id = Date.now() + i);
   }
   sortFeedsAlphabetically();
@@ -250,54 +250,41 @@ function populateListSelect() {
   optionsContainer.innerHTML = '';
   const customLists = getCustomLists();
 
-  const createOption = (name, isHeader = false) => {
+  const allItems = [];
+  Object.keys(customLists).forEach(name => allItems.push({ name, type: 'custom' }));
+  Object.keys(PREDEFINED_LISTS).forEach(name => allItems.push({ name, type: 'predefined' }));
+
+  allItems.sort((a, b) => a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' }));
+
+  const createOption = (name, type) => {
     const div = document.createElement('div');
-    if (isHeader) {
-      div.className = 'custom-option-header';
-      div.textContent = name;
-    } else {
-      div.className = `custom-option ${selectedListName === name ? 'selected' : ''}`;
-      if (name === 'K4SATURA') div.classList.add('k4satura-option');
-      const span = document.createElement('span');
-      span.textContent = name;
-      div.appendChild(span);
-      div.onclick = () => selectList(name);
-    }
+    div.className = `custom-option ${selectedListName === name ? 'selected' : ''}`;
+    if (name === 'K4SATURA') div.classList.add('k4satura-option');
+    else if (type === 'custom') div.classList.add('user-list-option');
+
+    const span = document.createElement('span');
+    span.textContent = name;
+    div.appendChild(span);
+    div.onclick = () => selectList(name);
     optionsContainer.appendChild(div);
   };
 
-  if (Object.keys(customLists).length > 0) {
-    const customNames = Object.keys(customLists).sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
-    for (const name of customNames) {
-      createOption(name);
-    }
-  }
-
-  const predefinedNames = Object.keys(PREDEFINED_LISTS)
-    .filter(name => name !== 'K4SATURA')
-    .sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
-
-  for (const name of predefinedNames) {
-    createOption(name);
-  }
-
-  if (PREDEFINED_LISTS['K4SATURA']) {
-    createOption('K4SATURA');
-  }
+  allItems.forEach(item => createOption(item.name, item.type));
 
   if (selectedListName) {
     triggerText.textContent = selectedListName;
+    const isCustom = !!customLists[selectedListName];
+
     if (selectedListName === 'K4SATURA') {
-      triggerText.classList.add('k4satura-brand-text');
-      triggerText.classList.remove('selected-list-text');
+      triggerText.className = 'k4satura-brand-text';
+    } else if (isCustom) {
+      triggerText.className = 'user-list-text';
     } else {
-      triggerText.classList.remove('k4satura-brand-text');
-      triggerText.classList.add('selected-list-text');
+      triggerText.className = 'selected-list-text';
     }
   } else {
     triggerText.textContent = 'Bir liste seçin...';
-    triggerText.classList.remove('k4satura-brand-text');
-    triggerText.classList.remove('selected-list-text');
+    triggerText.className = '';
   }
   handleListSelectChange();
 }
@@ -306,6 +293,7 @@ function selectList(name) {
   localStorage.setItem('rssfeeder_selected_list', name);
   document.getElementById('listSelectWrapper').classList.remove('open');
   populateListSelect();
+  loadSelectedList();
 }
 
 document.addEventListener('click', (e) => {
@@ -321,13 +309,16 @@ document.addEventListener('click', (e) => {
 
 function handleListSelectChange() {
   const btnDelete = document.getElementById('btnDeleteList');
+  const spacer = document.getElementById('listSelectSpacer');
   const customLists = getCustomLists();
 
   if (btnDelete) {
     if (selectedListName && customLists[selectedListName]) {
       btnDelete.style.display = 'inline-flex';
+      if (spacer) spacer.style.display = 'none';
     } else {
       btnDelete.style.display = 'none';
+      if (spacer) spacer.style.display = 'block';
     }
   }
 }
@@ -351,16 +342,14 @@ function loadSelectedList() {
     }
   }
 
-  if (confirm(`Mevcut kaynaklarınız silinecek ve "${selectedListName}" listesi yüklenecek. Emin misiniz?`)) {
-    feeds = listToLoad;
-    feeds.forEach((f, i) => f.id = Date.now() + i);
-    saveFeeds();
-    if (typeof renderModalFeedList === 'function') renderModalFeedList();
-    populateListSelect();
-    renderSidebar();
-    loadAllFeeds();
-    showToast(`"${selectedListName}" listesi yüklendi.`);
-  }
+  feeds = listToLoad;
+  feeds.forEach((f, i) => f.id = Date.now() + i);
+  saveFeeds();
+  if (typeof renderModalFeedList === 'function') renderModalFeedList();
+  populateListSelect();
+  renderSidebar();
+  loadAllFeeds();
+  showToast(`"${selectedListName}" listesi yüklendi.`);
 }
 
 function saveCurrentAsList() {
