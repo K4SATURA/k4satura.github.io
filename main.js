@@ -20,6 +20,81 @@ let currentRenderedCount = 0;
 let isRendering = false;
 let refreshInterval = null;
 let timeLeft = 300;
+let player;
+let ytApiLoaded = false;
+
+// YouTube API'yi dinamik olarak yükle (Hata payını azaltmak için)
+function loadYoutubeApi() {
+  if (ytApiLoaded) return;
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  ytApiLoaded = true;
+}
+
+// Global scope'a bağla
+window.onYouTubeIframeAPIReady = function() {
+  player = new YT.Player('ytPlayer', {
+    height: '0',
+    width: '0',
+    videoId: '5yx6BWlEVcY',
+    playerVars: {
+      'autoplay': 0,
+      'controls': 0,
+      'disablekb': 1,
+      'fs': 0,
+      'modestbranding': 1,
+      'rel': 0,
+      'showinfo': 0
+    },
+    events: {
+      'onReady': () => { console.log('YT Player Ready'); },
+      'onStateChange': onPlayerStateChange
+    }
+  });
+};
+
+function onPlayerStateChange(event) {
+  const btn = document.getElementById('musicBtn');
+  if (!btn) return;
+  
+  // Gerçek duruma göre UI'ı senkronize et
+  if (event.data === YT.PlayerState.PLAYING) {
+    btn.classList.add('playing');
+  } else if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) {
+    btn.classList.remove('playing');
+  }
+}
+
+function toggleMusic() {
+  const btn = document.getElementById('musicBtn');
+  
+  if (!ytApiLoaded) {
+    loadYoutubeApi();
+    showToast('Oynatıcı yükleniyor...', false);
+    return;
+  }
+
+  if (!player || typeof player.getPlayerState !== 'function') {
+    showToast('Oynatıcı hazırlanıyor...', false);
+    return;
+  }
+  
+  const state = player.getPlayerState();
+  
+  // Optimistik UI Güncellemesi: API'den yanıt gelmeden butonu değiştir
+  if (state === YT.PlayerState.PLAYING) {
+    btn.classList.remove('playing');
+    player.pauseVideo();
+  } else {
+    btn.classList.add('playing');
+    player.playVideo();
+  }
+}
+
+// Uygulama başladığında API'yi hazırla
+loadYoutubeApi();
 
 function initApp() {
   initTheme();

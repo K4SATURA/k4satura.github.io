@@ -14,7 +14,8 @@
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap"
     rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
-  <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.13.0/dist/rss-parser.min.js" integrity="sha256-F/XmJMW0GjV9plS9N/uS5WP0ACGAnPNdgXMLsQARmA4=" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/rss-parser@3.13.0/dist/rss-parser.min.js"
+    integrity="sha256-F/XmJMW0GjV9plS9N/uS5WP0ACGAnPNdgXMLsQARmA4=" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="style.css?v=1.0.1">
 </head>
 
@@ -61,6 +62,16 @@
         <div class="header-date" id="headerDate">01.01.2026</div>
       </div>
       <div class="k4satura-brand">K4SATURA</div>
+      <button class="btn-play" id="musicBtn" onclick="toggleMusic()" title="Oynat/durdur.">
+        <div class="play-icon-wrapper">
+          <svg class="icon-play" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" fill="currentColor" />
+          </svg>
+          <svg class="icon-pause" viewBox="0 0 24 24">
+            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor" />
+          </svg>
+        </div>
+      </button>
       <button class="btn-theme" onclick="toggleTheme(event)" title="Tema değiştir">
         <svg class="icon-moon" viewBox="0 0 24 24">
           <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z" />
@@ -165,7 +176,8 @@
           </div>
           <div class="form-row">
             <input type="text" class="form-input" id="newFeedUrl" placeholder="RSS bağlantısı girin.">
-            <button class="btn-add" id="btnAddFeed" onclick="addFeed()" style="width: 90px; flex-shrink: 0;">EKLE</button>
+            <button class="btn-add" id="btnAddFeed" onclick="addFeed()"
+              style="width: 90px; flex-shrink: 0;">EKLE</button>
           </div>
         </div>
         <div class="lists-section" style="margin-top: 24px;">
@@ -216,6 +228,9 @@
     <div class="toast-progress">
       <div class="toast-progress-bar" id="toastProgressBar"></div>
     </div>
+  </div>
+  <div id="ytPlayerContainer" style="display: none;">
+    <div id="ytPlayer"></div>
   </div>
   <script src="feeds.js"></script>
   <script src="main.js"></script>
