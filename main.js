@@ -20,6 +20,7 @@ let currentRenderedCount = 0;
 let isRendering = false;
 let refreshInterval = null;
 let timeLeft = 300;
+
 function initApp() {
   initTheme();
   const storedRead = localStorage.getItem('rssfeeder_read');
