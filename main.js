@@ -21,9 +21,6 @@ let isRendering = false;
 let refreshInterval = null;
 let timeLeft = 300;
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const proxyStatus = new Map(); // Tracks rate-limited or blocked proxies
-
 function initApp() {
   initTheme();
   const storedRead = localStorage.getItem('rssfeeder_read');
@@ -659,7 +656,7 @@ function generateStableId(str) {
   }
   return 'id_' + Math.abs(hash).toString(36);
 }
-async function fetchFeed(feed, retryCount = 0) {
+async function fetchFeed(feed) {
   const cacheKey = feed.url;
   const cached = feedCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp < 5 * 60 * 1000)) {
@@ -667,36 +664,18 @@ async function fetchFeed(feed, retryCount = 0) {
   }
 
   const endpoints = [
-    { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json', id: 'rss2json' },
-    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`, type: 'allorigins', id: 'allorigins' },
-    { url: `https://corsproxy.io/?${encodeURIComponent(feed.url)}`, type: 'xml', id: 'corsproxy' },
-    { url: `https://yacdn.org/proxy/${feed.url}`, type: 'xml', id: 'yacdn' }
+    { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json' },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`, type: 'allorigins' },
+    { url: `https://corsproxy.io/?${encodeURIComponent(feed.url)}`, type: 'xml' }
   ];
 
   for (const ep of endpoints) {
-    // Skip if proxy is temporarily blocked
-    const status = proxyStatus.get(ep.id);
-    if (status && Date.now() < status.blockedUntil) continue;
-
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(ep.url, { signal: controller.signal });
-      
-      if (res.status === 429) {
-        // Rate limited
-        proxyStatus.set(ep.id, { blockedUntil: Date.now() + 60000 }); // Block for 1 min
-        throw new Error('Rate limited');
-      }
-      
-      if (res.status === 403) {
-        // Forbidden/Blocked
-        proxyStatus.set(ep.id, { blockedUntil: Date.now() + 300000 }); // Block for 5 min
-        throw new Error('Forbidden');
-      }
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) throw new Error('Not ok');
 
       let result = null;
       if (ep.type === 'json') {
@@ -763,11 +742,6 @@ async function fetchFeed(feed, retryCount = 0) {
       return result;
     } catch (e) {
       clearTimeout(timeoutId);
-      // If we are rate limited, we might want to retry this specific feed later or try another proxy
-      if (e.message === 'Rate limited' && retryCount < 2) {
-        await sleep(1000 * (retryCount + 1));
-        // Continue to next endpoint or retry loop
-      }
     }
   }
 
@@ -810,25 +784,27 @@ async function loadAllFeeds() {
   articles = [];
   let failedFeeds = [];
   const active = feeds.filter(f => f.active);
-  
-  // Fetch sequentially with a small delay to avoid rate limiting
-  for (const feed of active) {
-    try {
-      const data = await fetchFeed(feed);
-      if (data && data.error) {
-        failedFeeds.push(data.source);
-        const feedIndex = feeds.findIndex(f => f.name === data.source);
-        if (feedIndex > -1) feeds[feedIndex].active = false;
-      } else if (data) {
-        articles.push(...data);
+  const res = await Promise.allSettled(active.map(f => fetchFeed(f)));
+  res.forEach((r, idx) => {
+    if (r.status === 'fulfilled') {
+      if (r.value.error) {
+        failedFeeds.push(r.value.source);
+        const feedIndex = feeds.findIndex(f => f.name === r.value.source);
+        if (feedIndex > -1 && feeds[feedIndex].active) {
+          feeds[feedIndex].active = false;
+        }
+      } else {
+        articles.push(...r.value);
       }
-    } catch (err) {
-      failedFeeds.push(feed.name);
-      const feedIndex = feeds.findIndex(f => f.name === feed.name);
-      if (feedIndex > -1) feeds[feedIndex].active = false;
+    } else {
+      const sourceName = active[idx].name;
+      failedFeeds.push(sourceName);
+      const feedIndex = feeds.findIndex(f => f.name === sourceName);
+      if (feedIndex > -1 && feeds[feedIndex].active) {
+        feeds[feedIndex].active = false;
+      }
     }
-    await sleep(250); // 250ms delay between feeds
-  }
+  });
   if (failedFeeds.length > 0) saveFeeds();
   articles.sort((a, b) => new Date(b.date) - new Date(a.date));
 
