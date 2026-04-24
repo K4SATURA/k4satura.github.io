@@ -108,7 +108,7 @@ header {
   top: 0;
   z-index: 100;
   transition: background 0.25s, border-color 0.25s;
-  will-change: transform, backdrop-filter;
+  will-change: transform;
   transform: translateZ(0);
 }
 
@@ -440,7 +440,7 @@ html[data-theme="light"] .icon-sun {
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: background 0.3s, border-color 0.3s;
-  will-change: transform, backdrop-filter;
+  will-change: transform;
   transform: translateZ(0);
 }
 
@@ -799,20 +799,6 @@ html[data-theme="light"] .icon-sun {
   animation: spin-btn 1s linear infinite;
 }
 
-.btn-refresh svg {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.5;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .news-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -871,6 +857,8 @@ html[data-theme="light"] .icon-sun {
   transition: border-color 0.4s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.1s linear;
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 500px;
 }
 
 .news-card:hover {
@@ -905,11 +893,6 @@ html[data-theme="light"] .icon-sun {
 .news-card.read:hover {
   opacity: 1;
   filter: grayscale(0) contrast(1);
-}
-
-.news-card {
-  content-visibility: auto;
-  contain-intrinsic-size: 1px 500px;
 }
 
 .card-img-wrap {
@@ -1455,10 +1438,6 @@ html[data-theme="light"] .card-source {
 }
 
 
-select.form-input {
-  display: none;
-}
-
 .btn-add {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -1610,29 +1589,6 @@ button.feed-action-badge.btn-edit:hover {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
-}
-
-.btn-reset-defaults {
-  background: color-mix(in srgb, var(--surface2) 30%, transparent);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-left: auto;
-}
-
-.btn-reset-defaults:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-dim);
-  box-shadow: 0 0 12px var(--accent-dim);
 }
 
 .toast {

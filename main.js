@@ -179,7 +179,15 @@ function markAsRead(id) {
   readArticles.add(id);
   localStorage.setItem('rssfeeder_read', JSON.stringify([...readArticles]));
   updateReadCounter();
-  renderArticles();
+  // Only update the affected card instead of re-rendering the whole grid
+  const card = document.querySelector(`.news-card[data-id="${id}"]`);
+  if (card) {
+    card.classList.add('read');
+    const link = card.querySelector('.card-link');
+    if (link) link.innerHTML = '<svg viewBox="0 0 24 24" style="margin-right:2px; stroke-width:2.5;"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>OKUNDU';
+  }
+  // Only force re-render if unread filter is active (card needs to disappear)
+  if (showUnreadOnly) renderArticles();
 }
 
 function initTilt(card) {
@@ -545,6 +553,80 @@ function extractImageFromHtml(htmlContent, baseUrl) {
 }
 const feedCache = new Map();
 
+// ─── Proxy health tracking ────────────────────────────────────────────────────
+const proxyHealth = new Map();
+function recordProxy(id, ok) {
+  const h = proxyHealth.get(id) || { ok: 0, fail: 0, lastFail: 0 };
+  if (ok) { h.ok++; }
+  else { h.fail++; h.lastFail = Date.now(); }
+  proxyHealth.set(id, h);
+}
+function proxyScore(id) {
+  const h = proxyHealth.get(id);
+  if (!h) return 0;
+  const recencyPenalty = (Date.now() - h.lastFail < 120_000) ? h.fail * 5 : h.fail;
+  return h.ok - recencyPenalty;
+}
+
+// ─── Proxy definitions ────────────────────────────────────────────────────────
+// Each proxy is tried in score order; on success it scores +1, on failure -1 (with recency penalty)
+const PROXIES = [
+  {
+    id: 'rss2json',
+    build: u => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(u)}`,
+    type: 'json'
+  },
+  {
+    id: 'allorigins_raw',
+    build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    type: 'xml'
+  },
+  {
+    id: 'codetabs',
+    build: u => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+    type: 'xml'
+  },
+  {
+    id: 'corsproxy',
+    build: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+    type: 'xml'
+  },
+  {
+    id: 'allorigins_get',
+    build: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    type: 'allorigins'
+  },
+  {
+    id: 'thingproxy',
+    build: u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    type: 'xml'
+  },
+  {
+    id: 'corsanywhere',
+    build: u => `https://api.cors.lol/?url=${encodeURIComponent(u)}`,
+    type: 'xml'
+  }
+];
+
+function getSortedProxies() {
+  return [...PROXIES].sort((a, b) => proxyScore(b.id) - proxyScore(a.id));
+}
+
+// ─── Concurrency limiter ──────────────────────────────────────────────────────
+function makeConcurrencyLimiter(max) {
+  let running = 0;
+  const queue = [];
+  const run = () => {
+    while (running < max && queue.length > 0) {
+      running++;
+      const { fn, resolve, reject } = queue.shift();
+      fn().then(resolve, reject).finally(() => { running--; run(); });
+    }
+  };
+  return fn => new Promise((resolve, reject) => { queue.push({ fn, resolve, reject }); run(); });
+}
+const fetchLimiter = makeConcurrencyLimiter(4);
+
 function decodeImageUrl(url) {
   if (!url || typeof url !== 'string') return url;
   return url.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
@@ -657,55 +739,76 @@ function generateStableId(str) {
   return 'id_' + Math.abs(hash).toString(36);
 }
 async function fetchFeed(feed) {
+  return fetchLimiter(() => _fetchFeed(feed));
+}
+
+async function _fetchFeed(feed) {
   const cacheKey = feed.url;
   const cached = feedCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp < 5 * 60 * 1000)) {
     return cached.data;
   }
 
-  const endpoints = [
-    { url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed.url)}`, type: 'json' },
-    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(feed.url)}`, type: 'allorigins' },
-    { url: `https://corsproxy.io/?${encodeURIComponent(feed.url)}`, type: 'xml' }
-  ];
+  const proxies = getSortedProxies();
 
-  for (const ep of endpoints) {
+  for (const proxy of proxies) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      const res = await fetch(ep.url, { signal: controller.signal });
-      if (!res.ok) throw new Error('Not ok');
+      const proxyUrl = proxy.build(feed.url);
+      const res = await fetch(proxyUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        // 429 = rate limited, 403 = blocked — don't retry same proxy soon
+        if (res.status === 429 || res.status === 403 || res.status === 520) {
+          recordProxy(proxy.id, false);
+        }
+        continue;
+      }
 
       let result = null;
-      if (ep.type === 'json') {
+
+      if (proxy.type === 'json') {
+        // rss2json returns a JSON object
         const data = await res.json();
-        if (data.status === 'ok' && data.items && data.items.length > 0) {
-          result = data.items.map(it => {
-            let img = getBestImage(it, it.link || it.guid);
-            return {
-              id: generateStableId(it.link || it.guid || it.title),
-              title: stripHtml(it.title) || 'Başlıksız İçerik',
-              link: it.link || it.guid || '#',
-              image: img,
-              textContent: getPlainText(it.content || it['content:encoded'] || it.description || it.summary || ''),
-              date: it.pubDate || '',
-              source: feed.name
-            };
-          });
+        if (data.status === 'ok' && Array.isArray(data.items) && data.items.length > 0) {
+          result = data.items.map(it => ({
+            id: generateStableId(it.link || it.guid || it.title),
+            title: stripHtml(it.title) || 'Başlıksız İçerik',
+            link: it.link || it.guid || '#',
+            image: getBestImage(it, it.link || it.guid),
+            textContent: getPlainText(it.content || it['content:encoded'] || it.description || it.summary || ''),
+            date: it.pubDate || '',
+            source: feed.name
+          }));
         } else {
-          throw new Error('Invalid JSON');
+          recordProxy(proxy.id, false);
+          continue;
         }
       } else {
         let text = '';
-        if (ep.type === 'allorigins') {
+        if (proxy.type === 'allorigins') {
           const data = await res.json();
-          text = data.contents;
+          text = data.contents || '';
         } else {
           text = await res.text();
         }
 
-        if (!text || text.includes('cloudflare') || text.startsWith('<!DOCTYPE html>')) throw new Error('Invalid XML');
+        // Reject HTML error pages or empty responses
+        if (!text || text.length < 60) { recordProxy(proxy.id, false); continue; }
+        const trimmed = text.trimStart();
+        if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+          recordProxy(proxy.id, false);
+          continue;
+        }
+        // Reject Cloudflare/Captcha walls
+        if (text.includes('cf-ray') || text.includes('cloudflare') || text.includes('Attention Required')) {
+          recordProxy(proxy.id, false);
+          continue;
+        }
+
         if (typeof RSSParser !== 'undefined') {
           const parser = new RSSParser({
             customFields: {
@@ -719,32 +822,34 @@ async function fetchFeed(feed) {
             }
           });
           const parsedData = await parser.parseString(text);
-          if (parsedData && parsedData.items) {
-            result = parsedData.items.map(it => {
-              let img = getBestImage(it, it.link || it.guid);
-              return {
-                id: generateStableId(it.link || it.guid || it.title),
-                title: stripHtml(it.title) || 'Başlıksız İçerik',
-                link: it.link || '#',
-                image: img,
-                textContent: getPlainText(it.content || it['content:encoded'] || it.contentSnippet || it.description || it.summary || ''),
-                date: it.isoDate || it.pubDate || '',
-                source: feed.name,
-              };
-            });
+          if (parsedData && parsedData.items && parsedData.items.length > 0) {
+            result = parsedData.items.map(it => ({
+              id: generateStableId(it.link || it.guid || it.title),
+              title: stripHtml(it.title) || 'Başlıksız İçerik',
+              link: it.link || '#',
+              image: getBestImage(it, it.link || it.guid),
+              textContent: getPlainText(it.content || it['content:encoded'] || it.contentSnippet || it.description || it.summary || ''),
+              date: it.isoDate || it.pubDate || '',
+              source: feed.name
+            }));
           }
         }
-        if (!result) throw new Error('Parse failed');
+        if (!result) { recordProxy(proxy.id, false); continue; }
       }
 
-      clearTimeout(timeoutId);
+      // Success
+      recordProxy(proxy.id, true);
       feedCache.set(cacheKey, { timestamp: Date.now(), data: result });
       return result;
+
     } catch (e) {
       clearTimeout(timeoutId);
+      recordProxy(proxy.id, false);
+      // abort = timeout, continue to next proxy
     }
   }
 
+  // All proxies failed — return stale cache if available, else error marker
   if (cached) return cached.data;
   return { error: true, source: feed.name };
 }
@@ -787,25 +892,18 @@ async function loadAllFeeds() {
   const res = await Promise.allSettled(active.map(f => fetchFeed(f)));
   res.forEach((r, idx) => {
     if (r.status === 'fulfilled') {
-      if (r.value.error) {
+      if (r.value && r.value.error) {
         failedFeeds.push(r.value.source);
-        const feedIndex = feeds.findIndex(f => f.name === r.value.source);
-        if (feedIndex > -1 && feeds[feedIndex].active) {
-          feeds[feedIndex].active = false;
-        }
-      } else {
+        // ⚠ Do NOT set active=false here — feeds should only be
+        // disabled by the user, not automatically on proxy failure.
+      } else if (Array.isArray(r.value)) {
         articles.push(...r.value);
       }
     } else {
-      const sourceName = active[idx].name;
-      failedFeeds.push(sourceName);
-      const feedIndex = feeds.findIndex(f => f.name === sourceName);
-      if (feedIndex > -1 && feeds[feedIndex].active) {
-        feeds[feedIndex].active = false;
-      }
+      failedFeeds.push(active[idx].name);
     }
   });
-  if (failedFeeds.length > 0) saveFeeds();
+
   articles.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   loading = false;
@@ -815,8 +913,14 @@ async function loadAllFeeds() {
   renderArticles();
   renderSidebar();
   startAutoRefresh();
-  if (failedFeeds.length > 0) showToast(`Erişilemeyen kaynaklar: ${failedFeeds.join(', ')}`, true);
-  else if (articles.length > 0) showToast('Kaynaklar güncellendi.');
+
+  if (failedFeeds.length > 0 && articles.length === 0) {
+    showToast(`Hiçbir kaynağa erişilemedi (${failedFeeds.length} hata). Yenilemeyi deneyin.`, true);
+  } else if (failedFeeds.length > 0) {
+    showToast(`${failedFeeds.length} kaynak yüklenemedi, ${articles.length} haber gösteriliyor.`, true);
+  } else if (articles.length > 0) {
+    showToast('Kaynaklar güncellendi.');
+  }
 }
 
 function showSkeletons() {
@@ -918,6 +1022,7 @@ function renderMoreArticles() {
 
     const card = document.createElement('div');
     card.className = `news-card ${isRead ? 'read' : ''}`;
+    card.dataset.id = a.id;
     card.style.setProperty('--card-color', c);
 
     let imgTag = '';
@@ -952,7 +1057,7 @@ function renderMoreArticles() {
         <button class="card-btn-copy" onclick="copyArticleText('${a.id}')" title="Kopyala">
           <svg viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
-        <a href="${esc(a.link)}" target="_blank" rel="noopener" class="card-link" onclick="markAsRead('${a.id}')">
+        <a href="${esc(a.link)}" target="_blank" rel="noopener noreferrer" class="card-link" onclick="markAsRead('${a.id}')">
           ${isRead
         ? '<svg viewBox="0 0 24 24" style="margin-right:2px; stroke-width:2.5;"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg>OKUNDU'
         : 'OKU<svg viewBox="0 0 24 24"><path d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" stroke-linecap="round" stroke-linejoin="round"/></svg>'}
