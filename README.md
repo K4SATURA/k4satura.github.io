@@ -17,12 +17,6 @@ Basit, hızlı ve ücretsiz RSS Feeder.
 * CSS
 * JavaScript
 
-## 💻 Nasıl Kullanılır?
-
-1. Ekrandaki **Kaynak Yönetimi** veya **Ekle** butonuna tıkla.
-2. Takip etmek istediğin web sitesinin RSS bağlantısını ilgili alana yapıştır.
-3. **Tüm Haberler** sekmesine geçerek güncel içerikleri hemen okumaya başla.
-
 ## 👨‍💻 Geliştirici
 
 * K4SATURA
