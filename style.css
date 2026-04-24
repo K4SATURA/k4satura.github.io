@@ -273,11 +273,18 @@ html[data-theme="light"] header::before {
   }
 }
 
+.logo-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+
 .logo-text {
   font-family: 'Barlow', sans-serif;
   font-size: 24px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.21em;
   text-transform: uppercase;
   background: linear-gradient(135deg, var(--text-bright) 0%, color-mix(in srgb, var(--text-bright) 40%, var(--accent)) 100%);
   -webkit-background-clip: text;
@@ -285,6 +292,42 @@ html[data-theme="light"] header::before {
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--accent) 25%, transparent));
   transition: all 0.3s ease;
+  line-height: 1.1;
+}
+
+.logo-slogan {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+
+  /* Live Effect: Shimmering Gradient */
+  background: linear-gradient(90deg,
+      var(--muted2) 0%,
+      var(--text-bright) 25%,
+      var(--accent) 50%,
+      var(--text-bright) 75%,
+      var(--muted2) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sloganShimmer 5s linear infinite;
+}
+
+@keyframes sloganShimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
 }
 
 .header-right {
